@@ -201,18 +201,31 @@ jobs:
       - name: Install Snapcraft (with LXD)
         uses: samuelmeuli/action-snapcraft@v3
 
+      - name: Ensure LXD is installed and initialized
+        run: |
+          set -euo pipefail
+          echo "::group::Install/init LXD"
+          if ! snap list lxd >/dev/null 2>&1; then
+            sudo snap install lxd
+          fi
+          sudo lxd waitready
+          sudo lxd init --auto
+          lxd version || true
+          lxc info || true
+          echo "::endgroup::"
+
       - name: Build amd64 snap via LXD (prime + pack)
         run: |
           echo "::group::snapcraft amd64 (prime + pack)"
-          sg lxd -c 'snapcraft --use-lxd --platform amd64 prime'
-          sg lxd -c 'snapcraft --use-lxd --platform amd64 pack'
+          sudo -E snapcraft --use-lxd --platform amd64 prime
+          sudo -E snapcraft --use-lxd --platform amd64 pack
           echo "::endgroup::"
 
       - name: Build arm64 snap via LXD (prime + pack)
         run: |
           echo "::group::snapcraft arm64 (prime + pack)"
-          sg lxd -c 'snapcraft --use-lxd --platform arm64 prime'
-          sg lxd -c 'snapcraft --use-lxd --platform arm64 pack'
+          sudo -E snapcraft --use-lxd --platform arm64 prime
+          sudo -E snapcraft --use-lxd --platform arm64 pack
           echo "::endgroup::"
 
       - name: List built snaps
