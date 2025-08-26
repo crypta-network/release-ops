@@ -183,9 +183,7 @@ jobs:
           mkdir -p "$WORK"
           # Extract tarball contents (expecting top-level bin/, conf/, lib/)
           tar -xzf "$TARBALL" -C "$WORK"
-          # Remove macOS binaries to reduce size
-          rm -f "$WORK"/bin/wrapper-macosx-* "$WORK"/lib/libwrapper-macosx-* || true
-          # Per-arch Linux wrapper trimming happens in snapcraft override-prime
+          # All platform-specific trimming happens in snapcraft override-prime
           D "Packaging payload for arch=${{ matrix.arch }} version=${VERSION}"
           find "$WORK" -maxdepth 2 -type f -print | sed 's/^/::debug::[payload] /'
           echo "::endgroup::"
