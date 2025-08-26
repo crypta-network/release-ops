@@ -54,6 +54,8 @@ apps:
     environment:
       # The upstream launcher refuses to run as root unless this is set.
       CRYPTAD_ALLOW_ROOT: "1"
+      JAVA_HOME: "$SNAP/usr/lib/jvm/java-21-openjdk-$SNAP_ARCH"
+      PATH: "$JAVA_HOME/bin:$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
     plugs:
       - network
       - network-bind
