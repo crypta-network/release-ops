@@ -31,6 +31,10 @@ parts:
     override-prime: |
       set -eux
       craftctl default
+      # Ensure launcher and native wrappers are world-readable/executable
+      if [ -d "$CRAFT_PRIME/bin" ]; then
+        find "$CRAFT_PRIME/bin" -maxdepth 1 -type f \( -name cryptad -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
+      fi
       rm -f "$CRAFT_PRIME"/bin/wrapper-macosx-* || true
       rm -f "$CRAFT_PRIME"/lib/libwrapper-macosx-* || true
       case "${CRAFT_ARCH_BUILD_ON:-${CRAFT_TARGET_ARCH:-}}" in
