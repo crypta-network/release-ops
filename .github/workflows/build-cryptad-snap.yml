@@ -14,7 +14,15 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
 
     steps:
       - name: Checkout release-ops repo
@@ -177,7 +185,8 @@ jobs:
           tar -xzf "$TARBALL" -C "$WORK"
           # Remove macOS binaries to reduce size
           rm -f "$WORK"/bin/wrapper-macosx-* "$WORK"/lib/libwrapper-macosx-* || true
-          D "Packaging payload for multi-platform build plan; version=${VERSION}"
+          # Per-arch Linux wrapper trimming happens in snapcraft override-prime
+          D "Packaging payload for arch=${{ matrix.arch }} version=${VERSION}"
           find "$WORK" -maxdepth 2 -type f -print | sed 's/^/::debug::[payload] /'
           echo "::endgroup::"
           echo "::group::Create payload tar"
@@ -201,32 +210,12 @@ jobs:
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v3
 
-      # Delay LXD install until arm64 build to force host provider for amd64
-
-      - name: Build amd64 snap on host (pack)
+      - name: Build snap (native arch, no LXD)
+        env:
+          SNAPCRAFT_BUILD_ENVIRONMENT: host
         run: |
-          echo "::group::snapcraft amd64 (pack on host)"
-          # Let Snapcraft choose the provider; for native arch this avoids LXD image fetch
-          SNAPCRAFT_BUILD_ENVIRONMENT=host snapcraft pack --platform amd64
-          echo "::endgroup::"
-
-      - name: Ensure LXD is installed and initialized (for arm64)
-        run: |
-          set -euo pipefail
-          echo "::group::Install/init LXD (for arm64)"
-          if ! snap list lxd >/dev/null 2>&1; then
-            sudo snap install lxd
-          fi
-          sudo lxd waitready
-          sudo lxd init --auto
-          sudo lxd version || true
-          sudo lxc info || true
-          echo "::endgroup::"
-
-      - name: Build arm64 snap via LXD (pack)
-        run: |
-          echo "::group::snapcraft arm64 (pack)"
-          sudo -E snapcraft pack --use-lxd --platform arm64
+          echo "::group::snapcraft ${{ matrix.arch }} (pack on host)"
+          sudo -E snapcraft pack --platform ${{ matrix.arch }}
           echo "::endgroup::"
 
       - name: List built snaps
@@ -236,6 +225,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Upload amd64 snap
+        if: matrix.arch == 'amd64'
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-snap-${{ steps.ver.outputs.version }}-amd64
@@ -245,6 +235,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload arm64 snap
+        if: matrix.arch == 'arm64'
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-snap-${{ steps.ver.outputs.version }}-arm64
