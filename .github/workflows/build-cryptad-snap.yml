@@ -15,10 +15,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [amd64, arm64]
 
     steps:
       - name: Checkout release-ops repo
@@ -156,7 +152,7 @@ jobs:
           echo "$TARBALL_ABS" > "$GITHUB_WORKSPACE/.tarball-path"
           echo "::endgroup::"
 
-      - name: Prepare snap payload (slim per-arch)
+      - name: Prepare snap payload (clean non-Linux bits)
         run: |
           set -euo pipefail
           D(){ echo "::debug::$*"; }
@@ -181,16 +177,10 @@ jobs:
           tar -xzf "$TARBALL" -C "$WORK"
           # Remove macOS binaries to reduce size
           rm -f "$WORK"/bin/wrapper-macosx-* "$WORK"/lib/libwrapper-macosx-* || true
-          # Remove the other Linux arch to reduce size further
-          if [ "${{ matrix.arch }}" = "amd64" ]; then
-            rm -f "$WORK"/bin/wrapper-linux-arm-64 "$WORK"/lib/libwrapper-linux-arm-64.so || true
-          else
-            rm -f "$WORK"/bin/wrapper-linux-x86-64 "$WORK"/lib/libwrapper-linux-x86-64.so || true
-          fi
-          D "Packaging payload for arch=${{ matrix.arch }} version=${VERSION}"
+          D "Packaging payload for multi-platform build plan; version=${VERSION}"
           find "$WORK" -maxdepth 2 -type f -print | sed 's/^/::debug::[payload] /'
           echo "::endgroup::"
-          echo "::group::Create per-arch payload tar"
+          echo "::group::Create payload tar"
           tar -C "$WORK" -czf "snap/local/cryptad-v${VERSION}.tar.gz" ./
           (ls -la snap/local | sed 's/^/::debug::[snap-local] /')
           echo "::endgroup::"
@@ -208,16 +198,22 @@ jobs:
           D "Kernel: $(uname -a)"
           echo "::endgroup::"
 
-      - name: Build snap (for ${{ matrix.arch }})
+      - name: Build snaps (amd64 + arm64 via platforms)
         id: snapcraft
         uses: snapcore/action-build@v1
         with:
           path: .
-          # Try to build for the target architecture
-          snapcraft-args: --build-for=${{ matrix.arch }}
 
-      - name: Upload built snap artifact
+      - name: List built snaps
+        run: |
+          echo "::group::List .snap files in workspace"
+          find . -maxdepth 2 -type f -name '*.snap' -print | sed 's/^/::debug::[snap] /' || true
+          echo "::endgroup::"
+
+      - name: Upload both snaps as one artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cryptad-snap-${{ steps.ver.outputs.version }}-${{ matrix.arch }}
-          path: ${{ steps.snapcraft.outputs.snap }}
+          name: cryptad-snaps-${{ steps.ver.outputs.version }}
+          path: |
+            ./*.snap
+            ./snap/*.snap
