@@ -1,6 +1,6 @@
 name: cryptad
 base: core24
-version: "__VERSION__"
+version: "v__VERSION__"
 summary: "Privacy-first P2P encrypted datastore and app platform"
 description: |
   Crypta Daemon (cryptad) is the Kotlin/Java reference node for the Crypta network,
