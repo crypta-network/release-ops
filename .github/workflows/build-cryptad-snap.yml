@@ -147,10 +147,13 @@ jobs:
             find build -maxdepth 3 -type f -print || true
             exit 1
           fi
+          # Store an absolute path so later steps outside 'upstream/' can read it
+          TARBALL_ABS="$(pwd)/$TARBALL"
           D "Using tarball: $TARBALL"
-          (du -h "$TARBALL" | sed 's/^/::debug::[du] /') || true
-          (sha256sum "$TARBALL" | sed 's/^/::debug::[sha256] /') || true
-          echo "$TARBALL" > "$GITHUB_WORKSPACE/.tarball-path"
+          D "Using tarball (abs): $TARBALL_ABS"
+          (du -h "$TARBALL_ABS" | sed 's/^/::debug::[du] /') || true
+          (sha256sum "$TARBALL_ABS" | sed 's/^/::debug::[sha256] /') || true
+          echo "$TARBALL_ABS" > "$GITHUB_WORKSPACE/.tarball-path"
           echo "::endgroup::"
 
       - name: Prepare snap payload (slim per-arch)
@@ -160,6 +163,16 @@ jobs:
           echo "::group::Extract and slim payload"
           mkdir -p snap/local
           TARBALL=$(cat .tarball-path)
+          D "Workspace: $(pwd)"
+          D "Tarball path from file: $TARBALL"
+          if [ ! -f "$TARBALL" ]; then
+            echo "::warning::Tarball not found at recorded path: $TARBALL"
+            # Fallback: if relative path was mistakenly stored, try under upstream/
+            if [ -f "upstream/$TARBALL" ]; then
+              TARBALL="upstream/$TARBALL"
+              D "Adjusted tarball path to: $TARBALL"
+            fi
+          fi
           VERSION='${{ steps.ver.outputs.version }}'
           WORK=workpkg
           rm -rf "$WORK"
