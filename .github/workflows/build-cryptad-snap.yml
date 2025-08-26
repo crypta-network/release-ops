@@ -210,10 +210,20 @@ jobs:
           find . -maxdepth 2 -type f -name '*.snap' -print | sed 's/^/::debug::[snap] /' || true
           echo "::endgroup::"
 
-      - name: Upload both snaps as one artifact
+      - name: Upload amd64 snap
         uses: actions/upload-artifact@v4
         with:
-          name: cryptad-snaps-${{ steps.ver.outputs.version }}
+          name: cryptad-snap-${{ steps.ver.outputs.version }}-amd64
           path: |
-            ./*.snap
-            ./snap/*.snap
+            ./*_amd64.snap
+            ./snap/*_amd64.snap
+          if-no-files-found: error
+
+      - name: Upload arm64 snap
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-snap-${{ steps.ver.outputs.version }}-arm64
+          path: |
+            ./*_arm64.snap
+            ./snap/*_arm64.snap
+          if-no-files-found: error
