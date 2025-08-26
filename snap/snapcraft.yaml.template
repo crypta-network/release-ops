@@ -12,8 +12,8 @@ confinement: devmode
 license: GPL-3.0
 
 architectures:
-  - build-on: [amd64, arm64]
-    run-on: [amd64, arm64]
+  - amd64
+  - arm64
 
 parts:
   cryptad:
