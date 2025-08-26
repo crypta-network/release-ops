@@ -11,9 +11,14 @@ grade: stable
 confinement: devmode
 license: GPL-3.0
 
-architectures:
-  - amd64
-  - arm64
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+  arm64:
+    # build on the default amd64 runner via LXD and on native arm64
+    build-on: [amd64, arm64]
+    build-for: [arm64]
 
 parts:
   cryptad:
