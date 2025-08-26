@@ -214,18 +214,16 @@ jobs:
           sudo lxc info || true
           echo "::endgroup::"
 
-      - name: Build amd64 snap via LXD (prime + pack)
+      - name: Build amd64 snap via LXD (pack)
         run: |
-          echo "::group::snapcraft amd64 (prime + pack)"
-          sudo -E snapcraft --use-lxd --platform amd64 prime
-          sudo -E snapcraft --use-lxd --platform amd64 pack
+          echo "::group::snapcraft amd64 (pack)"
+          sudo -E snapcraft pack --use-lxd --platform amd64
           echo "::endgroup::"
 
-      - name: Build arm64 snap via LXD (prime + pack)
+      - name: Build arm64 snap via LXD (pack)
         run: |
-          echo "::group::snapcraft arm64 (prime + pack)"
-          sudo -E snapcraft --use-lxd --platform arm64 prime
-          sudo -E snapcraft --use-lxd --platform arm64 pack
+          echo "::group::snapcraft arm64 (pack)"
+          sudo -E snapcraft pack --use-lxd --platform arm64
           echo "::endgroup::"
 
       - name: List built snaps
