@@ -28,6 +28,7 @@ jobs:
         id: ref
         run: |
           set -euo pipefail
+          echo "::group::Select upstream ref"
           if [ -n "${{ inputs.version }}" ]; then
             SELECTED="release/${{ inputs.version }}"
           else
@@ -35,6 +36,7 @@ jobs:
           fi
           echo "::debug::Selected upstream ref: $SELECTED"
           echo "ref=$SELECTED" >> "$GITHUB_OUTPUT"
+          echo "::endgroup::"
 
       - name: Checkout upstream cryptad (${{ steps.ref.outputs.ref }})
         uses: actions/checkout@v4
@@ -56,18 +58,22 @@ jobs:
         run: |
           set -euo pipefail
           D(){ echo "::debug::$*"; }
+          echo "::group::Resolve version"
           VERSION_INPUT='${{ inputs.version }}'
           if [ -n "$VERSION_INPUT" ]; then
             VERSION="$VERSION_INPUT"
           else
             VERSION=""
+            echo "::group::List Gradle tasks"
             D "Listing Gradle tasks (for printVersion)..."
             if ! ./gradlew -q tasks --all > ../_gradle_tasks.txt 2>&1; then
               D "gradlew tasks failed (continuing). Exit recorded."
             fi
             D "Tasks grep (printVersion):"
             grep -i "printVersion" ../_gradle_tasks.txt | sed 's/^/::debug::[tasks] /' || true
+            echo "::endgroup::"
             if grep -Eq '(^|\s)printVersion(\s|$)' ../_gradle_tasks.txt; then
+              echo "::group::Run printVersion task"
               D "printVersion task detected; invoking..."
               if ./gradlew -q printVersion > ../_printVersion.txt 2>&1; then
                 tail -n +1 ../_printVersion.txt | sed 's/^/::debug::[printVersion] /'
@@ -75,10 +81,12 @@ jobs:
               else
                 D "printVersion task run failed (continuing)."
               fi
+              echo "::endgroup::"
             else
               D "No printVersion task found."
             fi
             if [ -z "$VERSION" ]; then
+              echo "::group::Gradle properties (version)"
               D "Querying Gradle properties for project version..."
               if ./gradlew -q properties > ../_gradle_properties.txt 2>&1; then
                 tail -n +1 ../_gradle_properties.txt | sed 's/^/::debug::[properties] /' | head -n 40 || true
@@ -91,11 +99,14 @@ jobs:
               if [ -n "$PVER" ] && [ "$PVER" != "unspecified" ]; then
                 VERSION="$PVER"
               fi
+              echo "::endgroup::"
             fi
             if [ -z "$VERSION" ]; then
+              echo "::group::git describe fallback"
               # Last resort: use git describe (strip leading 'v')
               VERSION=$(git describe --tags --always --abbrev=0 2>/dev/null | sed 's/^v//') || true
               D "git describe version candidate: ${VERSION:-<empty>}"
+              echo "::endgroup::"
             fi
           fi
           if [ -z "$VERSION" ]; then
@@ -104,6 +115,7 @@ jobs:
           fi
           echo "::debug::Resolved version: $VERSION"
           echo "version=$VERSION" | tee -a "$GITHUB_OUTPUT"
+          echo "::endgroup::"
 
       - name: Build upstream project (dist)
         id: build
@@ -112,12 +124,17 @@ jobs:
           set -euo pipefail
           D(){ echo "::debug::$*"; }
           # Build (skip tests for speed/CI stability)
+          echo "::group::Java/Gradle versions"
           D "Java version:" && (java -version 2>&1 | sed 's/^/::debug::[java] /') || true
           D "Gradle version:" && (./gradlew -v 2>&1 | sed 's/^/::debug::[gradle] /') || true
+          echo "::endgroup::"
+          echo "::group::Gradle build"
           ./gradlew -S -x test build || ./gradlew -S build
+          echo "::endgroup::"
           # Expected tarball path
           VERSION="${{ steps.ver.outputs.version }}"
           TARBALL="build/distributions/cryptad-v${VERSION}.tar.gz"
+          echo "::group::Locate distribution tarball"
           D "Looking for $TARBALL"
           (ls -la build/distributions | sed 's/^/::debug::[dist] /') || true
           if [ ! -f "$TARBALL" ]; then
@@ -134,11 +151,13 @@ jobs:
           (du -h "$TARBALL" | sed 's/^/::debug::[du] /') || true
           (sha256sum "$TARBALL" | sed 's/^/::debug::[sha256] /') || true
           echo "$TARBALL" > "$GITHUB_WORKSPACE/.tarball-path"
+          echo "::endgroup::"
 
       - name: Prepare snap payload (slim per-arch)
         run: |
           set -euo pipefail
           D(){ echo "::debug::$*"; }
+          echo "::group::Extract and slim payload"
           mkdir -p snap/local
           TARBALL=$(cat .tarball-path)
           VERSION='${{ steps.ver.outputs.version }}'
@@ -157,19 +176,24 @@ jobs:
           fi
           D "Packaging payload for arch=${{ matrix.arch }} version=${VERSION}"
           find "$WORK" -maxdepth 2 -type f -print | sed 's/^/::debug::[payload] /'
+          echo "::endgroup::"
+          echo "::group::Create per-arch payload tar"
           tar -C "$WORK" -czf "snap/local/cryptad-v${VERSION}.tar.gz" ./
           (ls -la snap/local | sed 's/^/::debug::[snap-local] /')
+          echo "::endgroup::"
 
       - name: Generate snapcraft.yaml from template
         run: |
           set -euo pipefail
           D(){ echo "::debug::$*"; }
+          echo "::group::Generate snapcraft.yaml"
           VERSION='${{ steps.ver.outputs.version }}'
           sed "s/__VERSION__/${VERSION}/g" snap/snapcraft.yaml.template > snap/snapcraft.yaml
           D "Generated snap/snapcraft.yaml (first 160 lines):"
           (sed -n '1,160p' snap/snapcraft.yaml | sed 's/^/::debug::[snapcraft.yaml] /')
           D "Host arch: $(dpkg --print-architecture || true)"
           D "Kernel: $(uname -a)"
+          echo "::endgroup::"
 
       - name: Build snap (for ${{ matrix.arch }})
         id: snapcraft
