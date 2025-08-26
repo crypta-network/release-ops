@@ -198,13 +198,22 @@ jobs:
           D "Kernel: $(uname -a)"
           echo "::endgroup::"
 
-      - name: Install Snapcraft (with LXD)
+      - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v3
 
-      - name: Ensure LXD is installed and initialized
+      # Delay LXD install until arm64 build to force host provider for amd64
+
+      - name: Build amd64 snap on host (pack)
+        run: |
+          echo "::group::snapcraft amd64 (pack on host)"
+          # Let Snapcraft choose the provider; for native arch this avoids LXD image fetch
+          SNAPCRAFT_BUILD_ENVIRONMENT=host snapcraft pack --platform amd64
+          echo "::endgroup::"
+
+      - name: Ensure LXD is installed and initialized (for arm64)
         run: |
           set -euo pipefail
-          echo "::group::Install/init LXD"
+          echo "::group::Install/init LXD (for arm64)"
           if ! snap list lxd >/dev/null 2>&1; then
             sudo snap install lxd
           fi
@@ -212,13 +221,6 @@ jobs:
           sudo lxd init --auto
           sudo lxd version || true
           sudo lxc info || true
-          echo "::endgroup::"
-
-      - name: Build amd64 snap on host (pack)
-        run: |
-          echo "::group::snapcraft amd64 (pack on host)"
-          # Let Snapcraft choose the provider; for native arch this avoids LXD image fetch
-          snapcraft pack --platform amd64
           echo "::endgroup::"
 
       - name: Build arm64 snap via LXD (pack)
