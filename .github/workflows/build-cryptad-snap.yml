@@ -214,10 +214,11 @@ jobs:
           sudo lxc info || true
           echo "::endgroup::"
 
-      - name: Build amd64 snap via LXD (pack)
+      - name: Build amd64 snap on host (pack)
         run: |
-          echo "::group::snapcraft amd64 (pack)"
-          sudo -E snapcraft pack --use-lxd --platform amd64
+          echo "::group::snapcraft amd64 (pack on host)"
+          # Let Snapcraft choose the provider; for native arch this avoids LXD image fetch
+          snapcraft pack --platform amd64
           echo "::endgroup::"
 
       - name: Build arm64 snap via LXD (pack)
