@@ -210,8 +210,8 @@ jobs:
           fi
           sudo lxd waitready
           sudo lxd init --auto
-          lxd version || true
-          lxc info || true
+          sudo lxd version || true
+          sudo lxc info || true
           echo "::endgroup::"
 
       - name: Build amd64 snap via LXD (prime + pack)
