@@ -198,11 +198,22 @@ jobs:
           D "Kernel: $(uname -a)"
           echo "::endgroup::"
 
-      - name: Build snaps (amd64 + arm64 via platforms)
-        id: snapcraft
-        uses: snapcore/action-build@v1
-        with:
-          path: .
+      - name: Install Snapcraft (with LXD)
+        uses: samuelmeuli/action-snapcraft@v3
+
+      - name: Build amd64 snap via LXD (prime + pack)
+        run: |
+          echo "::group::snapcraft amd64 (prime + pack)"
+          sg lxd -c 'snapcraft --use-lxd --platform amd64 prime'
+          sg lxd -c 'snapcraft --use-lxd --platform amd64 pack'
+          echo "::endgroup::"
+
+      - name: Build arm64 snap via LXD (prime + pack)
+        run: |
+          echo "::group::snapcraft arm64 (prime + pack)"
+          sg lxd -c 'snapcraft --use-lxd --platform arm64 prime'
+          sg lxd -c 'snapcraft --use-lxd --platform arm64 pack'
+          echo "::endgroup::"
 
       - name: List built snaps
         run: |
