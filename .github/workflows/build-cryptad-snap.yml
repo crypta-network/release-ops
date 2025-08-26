@@ -27,11 +27,14 @@ jobs:
       - name: Decide upstream ref
         id: ref
         run: |
+          set -euo pipefail
           if [ -n "${{ inputs.version }}" ]; then
-            echo "ref=release/${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            SELECTED="release/${{ inputs.version }}"
           else
-            echo "ref=${{ inputs.branch }}" >> "$GITHUB_OUTPUT"
+            SELECTED="${{ inputs.branch }}"
           fi
+          echo "Selected upstream ref: $SELECTED"
+          echo "ref=$SELECTED" >> "$GITHUB_OUTPUT"
 
       - name: Checkout upstream cryptad (${{ steps.ref.outputs.ref }})
         uses: actions/checkout@v4
@@ -44,7 +47,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
           cache: gradle
 
       - name: Determine version via gradle printVersion or fallback
@@ -52,26 +55,53 @@ jobs:
         working-directory: upstream
         run: |
           set -euo pipefail
-          VERSION_INPUT="${{ inputs.version }}"
-          VERSION=""
-          # Prefer the Nebula Release task if available
-          if ./gradlew -q tasks --all | grep -q "^printVersion"; then
-            VERSION=$(./gradlew -q printVersion | tail -n1 | tr -d '[:space:]')
-          fi
-          if [ -z "$VERSION" ]; then
-            # Try gradle.properties: version=...
-            if [ -f gradle.properties ]; then
-              VERSION=$(grep -E '^[[:space:]]*version[[:space:]]*[:=][[:space:]]*' gradle.properties | tail -n1 | sed -E 's/^[^:=]+[:=][[:space:]]*//' | tr -d '[:space:]' | tr -d '"' | tr -d "'")
+          VERSION_INPUT='${{ inputs.version }}'
+          if [ -n "$VERSION_INPUT" ]; then
+            VERSION="$VERSION_INPUT"
+          else
+            VERSION=""
+            echo "Listing Gradle tasks (for printVersion)..."
+            if ! ./gradlew -q tasks --all > ../_gradle_tasks.txt 2>&1; then
+              echo "gradlew tasks failed (continuing). Exit recorded." >&2
             fi
-          fi
-          if [ -z "$VERSION" ]; then
-            # Last resort: use git describe (strip leading 'v')
-            VERSION=$(git describe --tags --always --abbrev=0 2>/dev/null | sed 's/^v//') || true
+            echo "Tasks grep (printVersion):"
+            grep -i "printVersion" ../_gradle_tasks.txt || true
+            if grep -Eq '(^|\s)printVersion(\s|$)' ../_gradle_tasks.txt; then
+              echo "printVersion task detected; invoking..."
+              if ./gradlew -q printVersion > ../_printVersion.txt 2>&1; then
+                tail -n +1 ../_printVersion.txt | sed 's/^/[printVersion] /'
+                VERSION=$(tail -n1 ../_printVersion.txt | tr -d '\r\n\t' | xargs || true)
+              else
+                echo "printVersion task run failed (continuing)." >&2
+              fi
+            else
+              echo "No printVersion task found."
+            fi
+            if [ -z "$VERSION" ]; then
+              echo "Querying Gradle properties for project version..."
+              if ./gradlew -q properties > ../_gradle_properties.txt 2>&1; then
+                tail -n +1 ../_gradle_properties.txt | sed 's/^/[properties] /' | head -n 40 || true
+                PVER=$(awk -F': ' '/^version:/{print $2; exit}' ../_gradle_properties.txt)
+                PVER=$(echo "$PVER" | tr -d '\r\n\t' | xargs)
+              else
+                echo "gradlew properties failed (continuing)." >&2
+                PVER=""
+              fi
+              if [ -n "$PVER" ] && [ "$PVER" != "unspecified" ]; then
+                VERSION="$PVER"
+              fi
+            fi
+            if [ -z "$VERSION" ]; then
+              # Last resort: use git describe (strip leading 'v')
+              VERSION=$(git describe --tags --always --abbrev=0 2>/dev/null | sed 's/^v//') || true
+              echo "git describe version candidate: ${VERSION:-<empty>}"
+            fi
           fi
           if [ -z "$VERSION" ]; then
             echo "Unable to determine version" >&2
             exit 1
           fi
+          echo "Resolved version: $VERSION"
           echo "version=$VERSION" | tee -a "$GITHUB_OUTPUT"
 
       - name: Build upstream project (dist)
@@ -80,19 +110,29 @@ jobs:
         run: |
           set -euo pipefail
           # Build (skip tests for speed/CI stability)
+          echo "Java version:"
+          java -version || true
+          echo "Gradle version:"
+          ./gradlew -v || true
           ./gradlew -S -x test build || ./gradlew -S build
           # Expected tarball path
           VERSION="${{ steps.ver.outputs.version }}"
           TARBALL="build/distributions/cryptad-v${VERSION}.tar.gz"
+          echo "Looking for $TARBALL"
+          ls -la build/distributions || true
           if [ ! -f "$TARBALL" ]; then
             # Fallback: find any cryptad*.tar.gz built artifact
             TARBALL=$(find build -type f -name 'cryptad-*.tar.gz' | head -n1 || true)
+            echo "Fallback tarball: ${TARBALL:-<none>}"
           fi
           if [ -z "$TARBALL" ] || [ ! -f "$TARBALL" ]; then
             echo "No distribution tarball found under build/." >&2
             find build -maxdepth 3 -type f -print || true
             exit 1
           fi
+          echo "Using tarball: $TARBALL"
+          du -h "$TARBALL" || true
+          sha256sum "$TARBALL" || true
           echo "$TARBALL" > "$GITHUB_WORKSPACE/.tarball-path"
 
       - name: Prepare snap payload (slim per-arch)
@@ -114,14 +154,19 @@ jobs:
           else
             rm -f "$WORK"/bin/wrapper-linux-x86-64 "$WORK"/lib/libwrapper-linux-x86-64.so || true
           fi
+          echo "Packaging payload for arch=${{ matrix.arch }} version=${VERSION}"
+          find "$WORK" -maxdepth 2 -type f -print | sed 's/^/[payload] /'
           tar -C "$WORK" -czf "snap/local/cryptad-v${VERSION}.tar.gz" ./
+          ls -la snap/local
 
       - name: Generate snapcraft.yaml from template
         run: |
           set -euo pipefail
           VERSION='${{ steps.ver.outputs.version }}'
           sed "s/__VERSION__/${VERSION}/g" snap/snapcraft.yaml.template > snap/snapcraft.yaml
-          echo "Generated snap/snapcraft.yaml:" && sed -n '1,120p' snap/snapcraft.yaml
+          echo "Generated snap/snapcraft.yaml (first 160 lines):" && sed -n '1,160p' snap/snapcraft.yaml
+          echo "---"
+          echo "Host arch: $(dpkg --print-architecture || true)  Kernel: $(uname -a)"
 
       - name: Build snap (for ${{ matrix.arch }})
         id: snapcraft
