@@ -1,0 +1,51 @@
+name: cryptad
+base: core24
+version: "__VERSION__"
+summary: "Privacy-first P2P encrypted datastore and app platform"
+description: |
+  Crypta Daemon (cryptad) is the Kotlin/Java reference node for the Crypta network,
+  a modern Hyphanet/Freenet fork providing a privacy-first, censorship-resistant
+  distributed datastore and application platform.
+
+grade: stable
+confinement: devmode
+license: GPL-3.0
+
+architectures:
+  - build-on: [amd64, arm64]
+    run-on: [amd64, arm64]
+
+parts:
+  cryptad:
+    plugin: dump
+    # The workflow copies the built dist tarball here with the resolved version
+    source: snap/local/cryptad-v__VERSION__.tar.gz
+    stage-packages:
+      - openjdk-21-jre-headless
+    # Trim non-Linux and non-target-arch binaries to reduce size
+    override-prime: |
+      set -eux
+      craftctl default
+      rm -f "$CRAFT_PRIME"/bin/wrapper-macosx-* || true
+      rm -f "$CRAFT_PRIME"/lib/libwrapper-macosx-* || true
+      case "${CRAFT_ARCH_BUILD_ON:-${CRAFT_TARGET_ARCH:-}}" in
+        amd64)
+          rm -f "$CRAFT_PRIME"/bin/wrapper-linux-arm-64 "$CRAFT_PRIME"/lib/libwrapper-linux-arm-64.so || true
+          ;;
+        arm64|aarch64)
+          rm -f "$CRAFT_PRIME"/bin/wrapper-linux-x86-64 "$CRAFT_PRIME"/lib/libwrapper-linux-x86-64.so || true
+          ;;
+        *)
+          true
+          ;;
+      esac
+
+apps:
+  cryptad:
+    command: bin/cryptad
+    environment:
+      # The upstream launcher refuses to run as root unless this is set.
+      CRYPTAD_ALLOW_ROOT: "1"
+    plugs:
+      - network
+      - network-bind

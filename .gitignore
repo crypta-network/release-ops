@@ -1,0 +1,32 @@
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs/temp
+*.log
+*.tmp
+*.bak
+*.cache
+
+# Snapcraft build artifacts
+prime/
+stage/
+parts/
+.snapcraft/
+*.snap
+
+# Generated snap files
+snap/snapcraft.yaml
+snap/local/
+
+# Local work dirs
+workpkg/
+.tarball-path
+
+# Dist tarballs placed for analysis
+cryptad-*.tar.gz
+cryptad-v*.tar.gz
+
