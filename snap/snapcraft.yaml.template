@@ -30,17 +30,18 @@ parts:
     override-prime: |
       set -eux
       craftctl default
-      # Ensure launcher and native wrappers are world-readable/executable
+      # Ensure launchers and native wrappers are world-readable/executable
       if [ -d "$CRAFT_PRIME/bin" ]; then
-        find "$CRAFT_PRIME/bin" -maxdepth 1 -type f \( -name cryptad -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
+        find "$CRAFT_PRIME/bin" -maxdepth 1 -type f \( -name cryptad -o -name crypta-launcher -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
       fi
       rm -f "$CRAFT_PRIME"/bin/wrapper-macosx-* || true
       rm -f "$CRAFT_PRIME"/lib/libwrapper-macosx-* || true
-      # Ensure desktop entry and icon are present under prime meta/gui for Snapcraft validation
+      # Ensure desktop entry and icon for crypta-launcher are present under prime meta/gui for Snapcraft validation
       mkdir -p "$CRAFT_PRIME/meta/gui"
-      if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.desktop" ]; then
-        cp -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.desktop" "$CRAFT_PRIME/meta/gui/cryptad.desktop"
+      if [ -f "$CRAFT_PROJECT_DIR/snap/gui/crypta-launcher.desktop" ]; then
+        cp -f "$CRAFT_PROJECT_DIR/snap/gui/crypta-launcher.desktop" "$CRAFT_PRIME/meta/gui/crypta-launcher.desktop"
       fi
+      # Reuse same icon for launcher
       if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.png" ]; then
         cp -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.png" "$CRAFT_PRIME/meta/gui/cryptad.png"
       fi
@@ -59,9 +60,19 @@ parts:
 apps:
   cryptad:
     command: bin/cryptad
-    desktop: meta/gui/cryptad.desktop
     environment:
       # The upstream launcher refuses to run as root unless this is set.
+      CRYPTAD_ALLOW_ROOT: "1"
+      JAVA_HOME: "$SNAP/usr/lib/jvm/java-21-openjdk-$SNAP_ARCH"
+      PATH: "$JAVA_HOME/bin:$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
+    plugs:
+      - network
+      - network-bind
+
+  crypta-launcher:
+    command: bin/crypta-launcher
+    desktop: meta/gui/crypta-launcher.desktop
+    environment:
       CRYPTAD_ALLOW_ROOT: "1"
       JAVA_HOME: "$SNAP/usr/lib/jvm/java-21-openjdk-$SNAP_ARCH"
       PATH: "$JAVA_HOME/bin:$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
