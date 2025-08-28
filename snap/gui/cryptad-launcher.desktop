@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Crypta
+GenericName=Crypta
+Comment=Launch the Crypta Daemon (cryptad)
+Exec=cryptad.cryptad-launcher
+Terminal=true
+Icon=${SNAP}/meta/gui/cryptad.png
+Categories=Network;Utility;
+Keywords=crypta;cryptad;p2p;daemon;launcher;
+X-SnapInstanceName=cryptad

@@ -32,14 +32,27 @@ parts:
       craftctl default
       # Ensure launchers and native wrappers are world-readable/executable
       if [ -d "$CRAFT_PRIME/bin" ]; then
-        find "$CRAFT_PRIME/bin" -maxdepth 1 -type f \( -name cryptad -o -name crypta-launcher -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
+        # Ensure a terminal-friendly launcher named 'cryptad-launcher' exists
+        if [ ! -f "$CRAFT_PRIME/bin/cryptad-launcher" ]; then
+          if [ -f "$CRAFT_PRIME/bin/crypta-launcher" ]; then
+            mv "$CRAFT_PRIME/bin/crypta-launcher" "$CRAFT_PRIME/bin/cryptad-launcher"
+          elif [ -f "$CRAFT_PRIME/bin/terminal-launcher" ]; then
+            mv "$CRAFT_PRIME/bin/terminal-launcher" "$CRAFT_PRIME/bin/cryptad-launcher"
+          else
+            cat > "$CRAFT_PRIME/bin/cryptad-launcher" <<'EOF'
+#!/bin/sh
+exec "$SNAP/bin/cryptad" "$@"
+EOF
+          fi
+        fi
+        find "$CRAFT_PRIME/bin" -maxdepth 1 -type f \( -name cryptad -o -name cryptad-launcher -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
       fi
       rm -f "$CRAFT_PRIME"/bin/wrapper-macosx-* || true
       rm -f "$CRAFT_PRIME"/lib/libwrapper-macosx-* || true
-      # Ensure desktop entry and icon for crypta-launcher are present under prime meta/gui for Snapcraft validation
+      # Ensure desktop entry and icon for cryptad-launcher are present under prime meta/gui for Snapcraft validation
       mkdir -p "$CRAFT_PRIME/meta/gui"
-      if [ -f "$CRAFT_PROJECT_DIR/snap/gui/crypta-launcher.desktop" ]; then
-        cp -f "$CRAFT_PROJECT_DIR/snap/gui/crypta-launcher.desktop" "$CRAFT_PRIME/meta/gui/crypta-launcher.desktop"
+      if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad-launcher.desktop" ]; then
+        cp -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad-launcher.desktop" "$CRAFT_PRIME/meta/gui/cryptad-launcher.desktop"
       fi
       # Reuse same icon for launcher
       if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.png" ]; then
@@ -69,9 +82,9 @@ apps:
       - network
       - network-bind
 
-  crypta-launcher:
-    command: bin/crypta-launcher
-    desktop: meta/gui/crypta-launcher.desktop
+  cryptad-launcher:
+    command: bin/cryptad-launcher
+    desktop: meta/gui/cryptad-launcher.desktop
     environment:
       CRYPTAD_ALLOW_ROOT: "1"
       JAVA_HOME: "$SNAP/usr/lib/jvm/java-21-openjdk-$SNAP_ARCH"

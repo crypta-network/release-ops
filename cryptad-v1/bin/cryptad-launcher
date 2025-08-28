@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve script directory without altering working directory
+DIR="$(cd "$(dirname "$0")" && pwd)"
+JAVA_EXE="${JAVA_HOME:-}/bin/java"
+if [ ! -x "$JAVA_EXE" ]; then JAVA_EXE="java"; fi
+CP="$DIR/../lib/*"
+
+exec "$JAVA_EXE" -cp "$CP" network.crypta.launcher.LauncherKt "$@"
