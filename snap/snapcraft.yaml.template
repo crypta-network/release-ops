@@ -51,6 +51,7 @@ parts:
 apps:
   cryptad:
     command: bin/cryptad
+    desktop: snap/gui/cryptad.desktop
     environment:
       # The upstream launcher refuses to run as root unless this is set.
       CRYPTAD_ALLOW_ROOT: "1"

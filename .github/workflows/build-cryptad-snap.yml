@@ -192,6 +192,19 @@ jobs:
           (ls -la snap/local | sed 's/^/::debug::[snap-local] /')
           echo "::endgroup::"
 
+      - name: Prepare desktop assets (icon)
+        run: |
+          set -euo pipefail
+          echo "::group::Prepare desktop icon"
+          mkdir -p snap/gui
+          if [ -f assets/crypta-logo.png ]; then
+            cp -f assets/crypta-logo.png snap/gui/cryptad.png
+            (ls -la snap/gui | sed 's/^/::debug::[snap-gui] /')
+          else
+            echo "::warning::assets/crypta-logo.png not found; desktop icon will be missing"
+          fi
+          echo "::endgroup::"
+
       - name: Generate snapcraft.yaml from template
         run: |
           set -euo pipefail
