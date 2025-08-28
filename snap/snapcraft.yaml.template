@@ -34,16 +34,7 @@ parts:
       if [ -d "$CRAFT_PRIME/bin" ]; then
         # Ensure a terminal-friendly launcher named 'cryptad-launcher' exists
         if [ ! -f "$CRAFT_PRIME/bin/cryptad-launcher" ]; then
-          if [ -f "$CRAFT_PRIME/bin/crypta-launcher" ]; then
-            mv "$CRAFT_PRIME/bin/crypta-launcher" "$CRAFT_PRIME/bin/cryptad-launcher"
-          elif [ -f "$CRAFT_PRIME/bin/terminal-launcher" ]; then
-            mv "$CRAFT_PRIME/bin/terminal-launcher" "$CRAFT_PRIME/bin/cryptad-launcher"
-          else
-            cat > "$CRAFT_PRIME/bin/cryptad-launcher" <<'EOF'
-#!/bin/sh
-exec "$SNAP/bin/cryptad" "$@"
-EOF
-          fi
+          printf '%s\n' '#!/bin/sh' 'exec "$SNAP/bin/cryptad" "$@"' > "$CRAFT_PRIME/bin/cryptad-launcher"
         fi
         find "$CRAFT_PRIME/bin" -maxdepth 1 -type f \( -name cryptad -o -name cryptad-launcher -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
       fi
