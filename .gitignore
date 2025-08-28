@@ -30,3 +30,5 @@ workpkg/
 cryptad-*.tar.gz
 cryptad-v*.tar.gz
 
+# Extracted payload directories (should never be committed)
+cryptad-v*/
