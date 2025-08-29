@@ -31,11 +31,12 @@ Key points:
   - `plugin: dump`
   - `source: snap/local/cryptad-jlink-v__VERSION__.tar.gz` (workflow creates this)
   - `stage-packages: [util-linux]` (provides `/usr/bin/script`; JRE is bundled via jlink in the payload)
-  - `override-prime`:
-    - Runs `craftctl default`.
-    - Ensures `bin/cryptad` and native `wrapper*` are `0755`.
-    - Removes macOS binaries.
-    - Trims the opposite Linux wrapper using `CRAFT_TARGET_ARCH`:
+- `override-prime`:
+  - Runs `craftctl default`.
+  - Ensures `bin/cryptad` and native `wrapper*` are `0755`.
+  - Ensures any bundled JRE entrypoint (`*/bin/java`) is `0755`.
+  - Removes macOS binaries.
+  - Trims the opposite Linux wrapper using `CRAFT_TARGET_ARCH`:
       - On amd64, remove `wrapper-linux-arm-64` and its `.so`.
       - On arm64, remove `wrapper-linux-x86-64` and its `.so`.
 - `apps.cryptad`:

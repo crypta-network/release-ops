@@ -39,6 +39,8 @@ parts:
         fi
         find "$CRAFT_PRIME/bin" -maxdepth 1 -type f \( -name cryptad -o -name cryptad-launcher -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
       fi
+      # Ensure any jlink Java runtime entrypoint is executable (e.g., jre/bin/java)
+      find "$CRAFT_PRIME" -type f -path '*/bin/java' -exec chmod 0755 {} + || true
       rm -f "$CRAFT_PRIME"/bin/wrapper-macosx-* || true
       rm -f "$CRAFT_PRIME"/lib/libwrapper-macosx-* || true
       # Ensure desktop entry and icon for cryptad-launcher are present under prime meta/gui for Snapcraft validation
