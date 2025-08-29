@@ -26,7 +26,7 @@ parts:
     # NOTE: uses the jlink distribution artifact name
     source: snap/local/cryptad-jlink-v__VERSION__.tar.gz
     stage-packages:
-      - util-linux
+      - bsdutils # for /usr/bin/script
       - libxext6
       - libx11-6
       - libxrender1
