@@ -70,6 +70,8 @@ apps:
       JAVA_HOME: "$SNAP/usr/lib/jvm/java-21-openjdk-$SNAP_ARCH"
       PATH: "$JAVA_HOME/bin:$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
     plugs:
+      - home
+      - removable-media
       - network
       - network-bind
 
@@ -81,5 +83,14 @@ apps:
       JAVA_HOME: "$SNAP/usr/lib/jvm/java-21-openjdk-$SNAP_ARCH"
       PATH: "$JAVA_HOME/bin:$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
     plugs:
+      # GUI + desktop integration for Swing
+      - wayland
+      - x11
+      - desktop
+      - desktop-legacy
+      # File access and networking
+      - home
       - network
       - network-bind
+      # Optional: allow access to USB/SD external storage (manual connect)
+      - removable-media
