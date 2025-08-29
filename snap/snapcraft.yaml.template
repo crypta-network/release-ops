@@ -26,7 +26,7 @@ parts:
     # NOTE: uses the jlink distribution artifact name
     source: snap/local/cryptad-jlink-v__VERSION__.tar.gz
     stage-packages:
-      - openjdk-21-jre
+      - util-linux
     # Trim non-Linux and non-target-arch binaries to reduce size
     override-prime: |
       set -eux
@@ -77,11 +77,6 @@ apps:
   cryptad-launcher:
     command: bin/cryptad-launcher
     desktop: meta/gui/cryptad-launcher.desktop
-    stage-packages:
-      - util-linux
-    layout:
-      /usr/bin/script:
-        bind-file: $SNAP/usr/bin/script
     environment:
       CRYPTAD_ALLOW_ROOT: "1"
     plugs:
@@ -96,3 +91,8 @@ apps:
       - network-bind
       # Optional: allow access to USB/SD external storage (manual connect)
       - removable-media
+
+# Bind the classic /usr/bin/script path inside the snap to the packaged util-linux binary
+layout:
+  /usr/bin/script:
+    bind-file: $SNAP/usr/bin/script

@@ -30,7 +30,7 @@ Key points:
 - `parts.cryptad`:
   - `plugin: dump`
   - `source: snap/local/cryptad-jlink-v__VERSION__.tar.gz` (workflow creates this)
-  - `stage-packages: [openjdk-21-jre-headless]` (JRE 21+ requirement)
+  - `stage-packages: [util-linux]` (provides `/usr/bin/script`; JRE is bundled via jlink in the payload)
   - `override-prime`:
     - Runs `craftctl default`.
     - Ensures `bin/cryptad` and native `wrapper*` are `0755`.
