@@ -25,7 +25,6 @@ parts:
     # The workflow copies the built dist tarball here with the resolved version
     # NOTE: uses the jlink distribution artifact name
     source: snap/local/cryptad-jlink-v__VERSION__.tar.gz
-    extensions: [ gnome ]
     stage-packages:
       - bsdutils # for /usr/bin/script
       - libxext6
@@ -94,6 +93,7 @@ apps:
 
   cryptad-launcher:
     command: bin/cryptad-launcher
+    extensions: [ gnome ]
     desktop: meta/gui/cryptad-launcher.desktop
     environment:
       CRYPTAD_ALLOW_ROOT: "1"
