@@ -8,7 +8,7 @@ description: |
   distributed datastore and application platform.
 
 grade: stable
-confinement: devmode
+confinement: strict
 license: GPL-3.0
 
 platforms:
