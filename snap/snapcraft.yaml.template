@@ -85,6 +85,7 @@ apps:
     environment:
       # The upstream launcher refuses to run as root unless this is set.
       CRYPTAD_ALLOW_ROOT: "1"
+      PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
     plugs:
       - home
       - removable-media
@@ -97,6 +98,7 @@ apps:
     desktop: meta/gui/cryptad-launcher.desktop
     environment:
       CRYPTAD_ALLOW_ROOT: "1"
+      PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
     plugs:
       # GUI + desktop integration for Swing
       - wayland
