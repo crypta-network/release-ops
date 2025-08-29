@@ -27,6 +27,21 @@ parts:
     source: snap/local/cryptad-jlink-v__VERSION__.tar.gz
     stage-packages:
       - util-linux
+      - libxext6
+      - libx11-6
+      - libxrender1
+      - libxtst6
+      - libxi6
+      - libxcb1
+      - libxau6
+      - libxdmcp6
+      - libfontconfig1
+      - libfreetype6
+      - fonts-dejavu-core
+    prime:
+      - -usr/share/doc/**
+      - -usr/share/man/**
+      - -usr/share/locale/**
     # Trim non-Linux and non-target-arch binaries to reduce size
     override-prime: |
       set -eux
