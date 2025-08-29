@@ -23,7 +23,8 @@ parts:
   cryptad:
     plugin: dump
     # The workflow copies the built dist tarball here with the resolved version
-    source: snap/local/cryptad-v__VERSION__.tar.gz
+    # NOTE: uses the jlink distribution artifact name
+    source: snap/local/cryptad-jlink-v__VERSION__.tar.gz
     stage-packages:
       - openjdk-21-jre
     # Trim non-Linux and non-target-arch binaries to reduce size

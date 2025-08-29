@@ -29,7 +29,7 @@ Key points:
   - `arm64: build-on [arm64], build-for [arm64]`
 - `parts.cryptad`:
   - `plugin: dump`
-  - `source: snap/local/cryptad-v__VERSION__.tar.gz` (workflow creates this)
+  - `source: snap/local/cryptad-jlink-v__VERSION__.tar.gz` (workflow creates this)
   - `stage-packages: [openjdk-21-jre-headless]` (JRE 21+ requirement)
   - `override-prime`:
     - Runs `craftctl default`.
@@ -64,13 +64,13 @@ High‑level flow:
      - If Gradle task `printVersion` exists: use its output
      - Else `./gradlew -q properties` → `version:` value (if not `unspecified`)
      - Else `git describe --tags` (strip leading `v`)
-  6) Build dist: `./gradlew -S -x test build`; expect `build/distributions/cryptad-v<version>.tar.gz`
+  6) Build dist: `./gradlew -S -x test build`; expect `build/distributions/cryptad-jlink-v<version>.tar.gz`
      - If not present, auto‑discover `cryptad-*.tar.gz`
      - Write absolute tarball path to `.tarball-path`
   7) Prepare payload:
      - Extract tarball to a work dir
      - Do not trim platform assets here; trimming happens in Snapcraft `override-prime`
-     - Repack as `snap/local/cryptad-v<version>.tar.gz`
+     - Repack as `snap/local/cryptad-jlink-v<version>.tar.gz`
   8) Generate `snap/snapcraft.yaml` from template (substitute `__VERSION__`)
   9) Install Snapcraft (`samuelmeuli/action-snapcraft@v3`)
  10) Build snap natively (no LXD):
@@ -130,4 +130,3 @@ Diagnostics:
   https://documentation.ubuntu.com/snapcraft/stable/reference/project-file/snapcraft-yaml/
 - Architectures / build plans:
   https://documentation.ubuntu.com/snapcraft/stable/explanation/architectures/
-
