@@ -86,6 +86,11 @@ apps:
       # The upstream launcher refuses to run as root unless this is set.
       CRYPTAD_ALLOW_ROOT: "1"
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
+      JAVA_TOOL_OPTIONS: >-
+        -Duser.home=$SNAP_USER_COMMON
+        -Djava.io.tmpdir=/tmp
+        -Djna.tmpdir=/tmp/jna
+        $JAVA_TOOL_OPTIONS
     plugs:
       - home
       - removable-media
@@ -99,6 +104,11 @@ apps:
     environment:
       CRYPTAD_ALLOW_ROOT: "1"
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
+      JAVA_TOOL_OPTIONS: >-
+        -Duser.home=$SNAP_USER_COMMON
+        -Djava.io.tmpdir=/tmp
+        -Djna.tmpdir=/tmp/jna
+        $JAVA_TOOL_OPTIONS
     plugs:
       # GUI + desktop integration for Swing
       - wayland
