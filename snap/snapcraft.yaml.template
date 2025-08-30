@@ -56,6 +56,8 @@ parts:
       fi
       # Ensure any jlink Java runtime entrypoint is executable (e.g., jre/bin/java)
       find "$CRAFT_PRIME" -type f -path '*/bin/java' -exec chmod 0755 {} + || true
+      # Ensure Java's jspawnhelper is executable
+      find "$CRAFT_PRIME" -type f -path '*/lib/jspawnhelper' -exec chmod 0755 {} + || true
       rm -f "$CRAFT_PRIME"/bin/wrapper-macosx-* || true
       rm -f "$CRAFT_PRIME"/lib/libwrapper-macosx-* || true
       # Ensure desktop entry and icon for cryptad-launcher are present under prime meta/gui for Snapcraft validation
@@ -121,7 +123,6 @@ apps:
       - network-bind
       # Optional: allow access to USB/SD external storage (manual connect)
       - removable-media
-      - system-observe
 
 # Bind the classic /usr/bin/script path inside the snap to the packaged util-linux binary
 layout:
