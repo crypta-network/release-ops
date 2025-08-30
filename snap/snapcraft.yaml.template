@@ -81,6 +81,16 @@ parts:
           ;;
       esac
 
+  snapshot-exclusions:
+    plugin: dump
+    source: snap
+    stage:
+      - snapshots.yaml
+    organize:
+      snapshots.yaml: meta/snapshots.yaml
+    prime:
+      - meta/snapshots.yaml
+
 apps:
   cryptad:
     command: bin/cryptad

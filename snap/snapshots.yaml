@@ -1,0 +1,8 @@
+# Exclude sensitive and cache-like user data from snap snapshots.
+# See: https://snapcraft.io/docs/snapshots-exclude
+exclude:
+  - $SNAP_USER_COMMON/data/CHK-*
+  - $SNAP_USER_COMMON/data/PUBKEY-*
+  - $SNAP_USER_COMMON/data/SSK-*
+  - $SNAP_USER_COMMON/data/downloads/*
+
