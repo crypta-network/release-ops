@@ -121,6 +121,7 @@ apps:
       - network-bind
       # Optional: allow access to USB/SD external storage (manual connect)
       - removable-media
+      - system-observe
 
 # Bind the classic /usr/bin/script path inside the snap to the packaged util-linux binary
 layout:
