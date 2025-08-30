@@ -82,12 +82,11 @@ parts:
       esac
 
   snapshot-exclusions:
-    plugin: dump
-    source: snap
-    stage:
-      - snapshots.yaml
-    organize:
-      snapshots.yaml: meta/snapshots.yaml
+    plugin: nil
+    override-build: |
+      set -eux
+      mkdir -p "$CRAFT_PART_INSTALL/meta"
+      cp -f "$CRAFT_PROJECT_DIR/snap/snapshots.yaml" "$CRAFT_PART_INSTALL/meta/snapshots.yaml"
     prime:
       - meta/snapshots.yaml
 
