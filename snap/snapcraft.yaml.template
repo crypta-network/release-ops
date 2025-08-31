@@ -110,7 +110,6 @@ apps:
 
   cryptad-launcher:
     command: bin/cryptad-launcher
-    extensions: [ gnome ]
     desktop: meta/gui/cryptad-launcher.desktop
     environment:
       CRYPTAD_ALLOW_ROOT: "1"
