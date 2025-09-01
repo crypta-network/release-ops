@@ -1,19 +1,28 @@
-# Release Ops Notes: cryptad Snap Packaging
+# Release Ops Notes: cryptad Packaging (Snap + Flatpak)
 
-This document captures the decisions, conventions, and workflow setup used to build multi‑arch (amd64, arm64) Snap packages for the Crypta Daemon (cryptad).
+This document captures the decisions, conventions, and workflow setup used to build multi‑arch packages for the Crypta Daemon (cryptad).
+
+It now covers both Snap (amd64, arm64) and Flatpak (x86_64, aarch64).
 
 ## Goals
 
 - Produce amd64 and arm64 snaps from upstream https://github.com/crypta-network/cryptad.
-- Build on native GitHub runners (no LXD) with Snapcraft pack per platform.
-- Keep size lean by trimming non‑target assets during prime.
+- Produce x86_64 and aarch64 Flatpak bundles from the same upstream artifacts.
+- Build on native GitHub runners (no LXD) using per‑platform packaging.
+- Keep size lean by trimming non‑target assets during package prime/install stages.
 - Upload each arch artifact separately for validation.
 
 ## Repository Layout
 
-- `.github/workflows/build-cryptad-snap.yml` — GitHub Actions pipeline.
+- `.github/workflows/build-cryptad-snap.yml` — GitHub Actions pipeline (Snap).
+- `.github/workflows/build-cryptad-flatpak.yml` — GitHub Actions pipeline (Flatpak).
 - `snap/snapcraft.yaml.template` — Snapcraft template rendered with the resolved version.
-- `.gitignore` — ignores generated artifacts, snapcraft build dirs, local temp files.
+- `snap/snapshots.yaml` — Snap snapshots exclusions included in the snap at `meta/snapshots.yaml`.
+- `flatpak/cryptad.yaml.template` — Flatpak manifest template rendered with the resolved version.
+- `flatpak/network.crypta.cryptad.metainfo.xml.template` — AppStream metadata template (rendered and included in Flatpak).
+- `desktop/cryptad.desktop.template` — shared desktop entry template used by both Snap and Flatpak workflows.
+- `desktop/icons/cryptad.png` and `desktop/icons/cryptad-512.png` — shared app icons (Snap uses the PNG; Flatpak installs 512×512 to hicolor).
+- `.gitignore` — ignores generated artifacts, build dirs, and rendered files for both packaging flows.
 
 ## Snapcraft Template (core24)
 
@@ -22,7 +31,7 @@ Path: `snap/snapcraft.yaml.template`
 Key points:
 - `base: core24`
 - `version: "v__VERSION__"` (snap names include a leading `v`, e.g. `v1.2.3`).
-- `confinement: devmode` for test runs. Switch to `strict` for a release.
+- `grade: stable`, `confinement: strict`.
 - `license: GPL-3.0`.
 - `platforms` (native‑only build plans):
   - `amd64: build-on [amd64], build-for [amd64]`
@@ -30,21 +39,32 @@ Key points:
 - `parts.cryptad`:
   - `plugin: dump`
   - `source: snap/local/cryptad-jlink-v__VERSION__.tar.gz` (workflow creates this)
-  - `stage-packages: [util-linux]` (provides `/usr/bin/script`; JRE is bundled via jlink in the payload)
+  - `stage-packages` includes a minimal desktop/X stack plus fonts for Swing UIs and a `script` provider. Current set:
+    - `bsdutils` (binds `/usr/bin/script` via `layout:`)
+    - `libx11-6`, `libxext6`, `libxrender1`, `libxtst6`, `libxi6`, `libxcb1`, `libxau6`, `libxdmcp6`
+    - `libfontconfig1`, `libfreetype6`, `fonts-dejavu-core`
+  - `prime:` trims docs/manpages/locales to keep size lean.
 - `override-prime`:
   - Runs `craftctl default`.
-  - Ensures `bin/cryptad` and native `wrapper*` are `0755`.
-  - Ensures any bundled JRE entrypoint (`*/bin/java`) is `0755`.
+  - Ensures `bin/cryptad`, `bin/cryptad-launcher`, native `wrapper*` are `0755`.
+  - Ensures any bundled JRE entrypoint (`*/bin/java`) and `*/lib/jspawnhelper` are `0755`.
   - Removes macOS binaries.
+  - Ensures `meta/gui/cryptad.desktop` and `meta/gui/cryptad.png` are present (copied from `snap/gui/`).
   - Trims the opposite Linux wrapper using `CRAFT_TARGET_ARCH`:
       - On amd64, remove `wrapper-linux-arm-64` and its `.so`.
       - On arm64, remove `wrapper-linux-x86-64` and its `.so`.
+- Additional part `snapshot-exclusions` (`plugin: nil`) installs `meta/snapshots.yaml` from `snap/snapshots.yaml` to exclude sensitive/cache data from Snap snapshots.
+- `layout:` binds `/usr/bin/script` inside the snap to the packaged binary for compatibility.
 - `apps.cryptad`:
   - `command: bin/cryptad`
-  - `environment: CRYPTAD_ALLOW_ROOT=1` (snap sandbox runs as root; upstream refuses root without this)
-  - `plugs: [network, network-bind]`
+  - `environment:` sets `CRYPTAD_ALLOW_ROOT=1`, extends `PATH`, and configures `JAVA_TOOL_OPTIONS` (tmp dirs, user.home to `$SNAP_USER_COMMON`).
+  - `plugs:` includes `home`, `removable-media`, `network`, `network-bind`.
+- `apps.cryptad-launcher` (GUI entry):
+  - `command: bin/cryptad-launcher`, `extensions: [ gnome ]`, `desktop: meta/gui/cryptad.desktop`.
+  - `environment:` same as `cryptad`.
+  - `plugs:` adds GUI integration (`wayland`, `x11`, `desktop`, `desktop-legacy`) plus `home`, `network`, `network-bind`, and optional `removable-media`.
 
-## GitHub Actions Workflow
+## GitHub Actions Workflow (Snap)
 
 Path: `.github/workflows/build-cryptad-snap.yml`
 
@@ -69,20 +89,58 @@ High‑level flow:
      - If not present, auto‑discover `cryptad-*.tar.gz`
      - Write absolute tarball path to `.tarball-path`
   7) Prepare payload:
-     - Extract tarball to a work dir
-     - Do not trim platform assets here; trimming happens in Snapcraft `override-prime`
-     - Repack as `snap/local/cryptad-jlink-v<version>.tar.gz`
-  8) Generate `snap/snapcraft.yaml` from template (substitute `__VERSION__`)
-  9) Install Snapcraft (`samuelmeuli/action-snapcraft@v3`)
- 10) Build snap natively (no LXD):
-     - Set `SNAPCRAFT_BUILD_ENVIRONMENT=host`
-     - `sudo -E snapcraft pack --platform ${{ matrix.arch }}`
- 11) Upload artifact per arch:
-     - `cryptad-snap-<version>-amd64` or `cryptad-snap-<version>-arm64`
+     - Extract tarball to a work dir; no pruning here (trimming happens in Snapcraft `override-prime`).
+     - Repack as `snap/local/cryptad-jlink-v<version>.tar.gz`.
+  8) Prepare desktop assets:
+     - Copy shared icon `desktop/icons/cryptad.png` to `snap/gui/cryptad.png`.
+     - Render `snap/gui/cryptad.desktop` from the shared template with `Exec=snap run cryptad.cryptad-launcher`.
+  9) Generate `snap/snapcraft.yaml` from template (substitute `__VERSION__`).
+ 10) Install Snapcraft (`samuelmeuli/action-snapcraft@v3`).
+ 11) Build snap natively (no LXD):
+     - Set `SNAPCRAFT_BUILD_ENVIRONMENT=host`.
+     - Run `sudo -E snapcraft pack --platform ${{ matrix.arch }}`.
+ 12) Upload artifact per arch:
+     - `cryptad-snap-<version>-amd64` or `cryptad-snap-<version>-arm64`.
 
 Diagnostics:
 - Uses GitHub Actions `::debug::` and `::group::/::endgroup::` for concise logs.
-- Prints Java/Gradle versions, tarball size/SHA256, generated snapcraft.yaml header.
+- Prints Java/Gradle versions, tarball size/SHA256, and generated `snapcraft.yaml` header.
+
+## Flatpak Template (Freedesktop 24.08)
+
+Path: `flatpak/cryptad.yaml.template`
+
+Key points:
+- `id: network.crypta.cryptad`, `branch: v__VERSION__`.
+- `runtime: org.freedesktop.Platform`, `runtime-version: '24.08'`, `sdk: org.freedesktop.Sdk`.
+- `command: cryptad-launcher` (GUI entry) with `finish-args` for network, wayland/x11, IPC, DRI, and `env: CRYPTAD_ALLOW_ROOT=1`.
+- Single `modules` entry unpacks `cryptad-jlink-v__VERSION__.tar.gz` to `/app` with `--strip-components=1` to ensure `/app/bin/cryptad` exists.
+- Post‑install fixes mirror Snap trim logic:
+  - `chmod 0755` for `bin/cryptad`, `bin/cryptad-launcher`, any `*/bin/java`, and `*/lib/jspawnhelper`.
+  - Remove macOS binaries and non‑target wrappers based on `FLATPAK_ARCH`.
+- Installs desktop entry `cryptad.desktop` and 512×512 icon to hicolor, plus AppStream metadata.
+
+## GitHub Actions Workflow (Flatpak)
+
+Path: `.github/workflows/build-cryptad-flatpak.yml`
+
+High‑level flow:
+- `workflow_dispatch` inputs mirror Snap (`version` or `branch`).
+- Matrix on native runners:
+  - `x86_64` on `ubuntu-latest`
+  - `aarch64` on `ubuntu-24.04-arm`
+- Steps per job:
+  1) Checkout this repo and select upstream ref.
+  2) Checkout upstream `crypta-network/cryptad` to `./upstream`.
+  3) Java setup (Temurin 21), resolve version (same heuristics as Snap).
+  4) Build upstream dist; write absolute tarball path to `.tarball-path`.
+  5) Repack payload to `flatpak/local/cryptad-jlink-v<version>.tar.gz`.
+  6) Render `flatpak/cryptad.yaml` and `flatpak/network.crypta.cryptad.metainfo.xml` from templates.
+  7) Render shared desktop file (`Exec=cryptad-launcher`, `Icon=network.crypta.cryptad`).
+  8) Install Flatpak tooling; add Flathub remote to the user scope; install freedesktop runtime+SDK 24.08.
+  9) Build with `flatpak-builder --user --arch=<matrix>`.
+ 10) Export repo to branch `v<version>` and bundle as `cryptad-flatpak-v<version>-<arch>.flatpak`.
+ 11) Upload artifact per arch: `cryptad-flatpak-<version>-x86_64` or `...-aarch64`.
 
 ## Rationale and Lessons Learned
 
@@ -93,9 +151,13 @@ Diagnostics:
   - Only Snapcraft `override-prime` removes macOS files and the opposite Linux wrapper.
   - The workflow no longer performs any file pruning.
 - Versioning:
-  - Snap version is prefixed with `v` to match artifact naming expectations.
+  - Snap and Flatpak versions are prefixed with `v` to match artifact naming expectations and branch naming in Flatpak bundles.
 - Confinement:
-  - `devmode` for testing; switch to `strict` before publishing stable.
+  - Snap uses `confinement: strict` with GNOME extension on the GUI app.
+- Desktop integration:
+  - A shared `.desktop` template is rendered differently per platform (`Exec` and `Icon` differ between Snap and Flatpak).
+  - Use a 512×512 icon for Flatpak to satisfy export/validation. Snap reuses the same artwork under `meta/gui/`.
+  - For Flatpak, extracting with `--strip-components=1` ensures `/app/bin/cryptad` exists; earlier wrapper hacks are no longer needed.
 
 ## Operational Notes
 
@@ -104,26 +166,33 @@ Diagnostics:
     - `version = 1.2.3` (checks out upstream `release/1.2.3`), or
     - `branch = some-branch` (when `version` is empty)
 - Artifacts:
-  - Two separate artifacts per run: one for amd64, one for arm64.
+  - Snap: two separate artifacts per run (`cryptad-snap-<version>-amd64` and `...-arm64`).
+  - Flatpak: two separate artifacts per run (`cryptad-flatpak-<version>-x86_64` and `...-aarch64`).
 - Upstream dist expectations:
   - Tarball contains `bin/cryptad`, `bin/wrapper-*`, `lib/*`, `conf/wrapper.conf`.
   - The upstream launcher rejects root unless `CRYPTAD_ALLOW_ROOT` is set; the snap sets this env var.
+  - Flatpak sets the same env var via `finish-args`.
 
 ## Future Enhancements
 
-- Switch to `confinement: strict` after testing is complete.
 - Optionally run as a daemon:
   - `apps.cryptad.daemon: simple`
   - Provide `restart-condition` and appropriate plugs/slots as needed.
 - Auto‑publish to Snap Store:
   - Add `snapcore/action-publish` and store credentials when ready.
 - Enrich version detection if upstream adds explicit Gradle `version` fields.
+- Auto‑publish Flatpak to Flathub when ready (add release job and credentials).
+- Review/trim `stage-packages` once GUI dependencies are validated across desktops.
 
 ## Known Pitfalls (and Avoided Patterns)
 
 - Don’t use `snapcore/action-build` or LXD cross‑build for this project; it led to wrong JRE arch or network issues.
 - Don’t trim platform assets in the workflow; prefer Snapcraft `override-prime` as the single source of truth.
 - If Gradle `printVersion` is absent, the workflow falls back to `gradle.properties` → `version:`, then `git describe`.
+- Flatpak specific:
+  - Ensure Flathub remote is added to the user scope and freedesktop 24.08 runtime+SDK are installed before building.
+  - Use a 512×512 icon; smaller icons fail certain `build-export` validations.
+  - Use `--strip-components=1` when extracting the payload so `/app/bin/cryptad` exists; otherwise fixups are required.
 
 ## Quick References
 
@@ -131,3 +200,5 @@ Diagnostics:
   https://documentation.ubuntu.com/snapcraft/stable/reference/project-file/snapcraft-yaml/
 - Architectures / build plans:
   https://documentation.ubuntu.com/snapcraft/stable/explanation/architectures/
+- Flatpak docs:
+  https://docs.flatpak.org/en/latest/
