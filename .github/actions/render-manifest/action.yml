@@ -1,0 +1,47 @@
+name: "Render file from template"
+description: "Renders a file by substituting tokens (via sed) in a template."
+inputs:
+  template_path:
+    description: "Path to the template file"
+    required: true
+  output_path:
+    description: "Path to write the rendered file"
+    required: true
+  substitutions:
+    description: |
+      Newline-separated KEY=VALUE pairs. Each KEY is substituted literally wherever it appears in the template.
+      Example:
+        __VERSION__=1.2.3
+    required: true
+  preview_lines:
+    description: "If >0, print first N lines of the rendered file for debugging"
+    required: false
+    default: "0"
+runs:
+  using: "composite"
+  steps:
+    - name: Render template
+      shell: bash
+      run: |
+        set -euo pipefail
+        tpl='${{ inputs.template_path }}'
+        out='${{ inputs.output_path }}'
+        subs='${{ inputs.substitutions }}'
+        mkdir -p "$(dirname "$out")"
+        # Build sed expressions
+        sed_args=()
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          case "$line" in \#* ) continue ;; esac
+          key="${line%%=*}"
+          val="${line#*=}"
+          # Escape sed replacement special chars (&)
+          val_esc=$(printf '%s' "$val" | sed -e 's/[&]/\\&/g')
+          sed_args+=( -e "s~$key~$val_esc~g" )
+        done < <(printf '%s\n' "$subs")
+        sed "${sed_args[@]}" "$tpl" > "$out"
+        echo "::debug::Rendered: $out from $tpl"
+        if [ "${{ inputs.preview_lines }}" != "0" ]; then
+          sed -n "1,${{ inputs.preview_lines }}p" "$out" | sed 's/^/::debug::[preview] /'
+        fi
+

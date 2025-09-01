@@ -16,6 +16,10 @@ It now covers both Snap (amd64, arm64) and Flatpak (x86_64, aarch64).
 
 - `.github/workflows/build-cryptad-snap.yml` — GitHub Actions pipeline (Snap).
 - `.github/workflows/build-cryptad-flatpak.yml` — GitHub Actions pipeline (Flatpak).
+- `.github/actions/prepare-cryptad/` — composite for upstream checkout + version resolve + Gradle dist.
+- `.github/actions/repack-payload/` — composite to extract upstream tarball and re‑tar into target `local/` dir.
+- `.github/actions/render-desktop/` — composite to render shared desktop template (Exec/Icon substitutions).
+- `.github/actions/render-manifest/` — composite to render templates with KEY=VALUE substitutions.
 - `snap/snapcraft.yaml.template` — Snapcraft template rendered with the resolved version.
 - `snap/snapshots.yaml` — Snap snapshots exclusions included in the snap at `meta/snapshots.yaml`.
 - `flatpak/cryptad.yaml.template` — Flatpak manifest template rendered with the resolved version.
@@ -75,6 +79,8 @@ High‑level flow:
 - Matrix builds on native runners:
   - `amd64` on `ubuntu-latest`
   - `arm64` on `ubuntu-24.04-arm`
+- Refactor note (2025‑09‑01): this workflow now calls composite actions
+  to deduplicate the upstream build, repack, and template rendering.
 - Steps per job:
   1) Checkout this repository
   2) Decide upstream ref (`release/<version>` or `branch`)
@@ -129,6 +135,23 @@ High‑level flow:
 - Matrix on native runners:
   - `x86_64` on `ubuntu-latest`
   - `aarch64` on `ubuntu-24.04-arm`
+- Refactor note (2025‑09‑01): this workflow now calls composite actions
+  for upstream prep, repack, and template rendering.
+
+## Reusable Composite Actions
+
+- `./.github/actions/prepare-cryptad`
+  - Inputs: `version`, `branch`, `upstream_repository?`, `upstream_path?`.
+  - Outputs: `version`, `tarball_path` (absolute). Builds upstream with Gradle and locates the dist tarball.
+- `./.github/actions/repack-payload`
+  - Inputs: `tarball_path`, `version`, `output_dir`.
+  - Outputs: `output_tarball`. Re‑tars upstream payload to `snap/local/` or `flatpak/local/`.
+- `./.github/actions/render-desktop`
+  - Inputs: `template_path`, `exec_name`, `icon_name`, `output_path`.
+  - Purpose: Renders `.desktop` from shared template for Snap/Flatpak.
+- `./.github/actions/render-manifest`
+  - Inputs: `template_path`, `output_path`, `substitutions` (newline KEY=VALUE), `preview_lines?`.
+  - Purpose: Generic token substitution for `snapcraft.yaml`, Flatpak manifest, and metainfo.
 - Steps per job:
   1) Checkout this repo and select upstream ref.
   2) Checkout upstream `crypta-network/cryptad` to `./upstream`.
@@ -150,6 +173,9 @@ High‑level flow:
 - Keep trimming logic in one place:
   - Only Snapcraft `override-prime` removes macOS files and the opposite Linux wrapper.
   - The workflow no longer performs any file pruning.
+- Deduplicate CI logic via composites:
+  - Upstream prep, payload repack, and template rendering are shared across Snap/Flatpak workflows.
+  - Keeps jobs small, declarative, and easier to evolve per‑platform.
 - Versioning:
   - Snap and Flatpak versions are prefixed with `v` to match artifact naming expectations and branch naming in Flatpak bundles.
 - Confinement:

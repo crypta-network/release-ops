@@ -1,0 +1,49 @@
+name: "Repack payload tarball"
+description: "Extracts the upstream tarball and repacks it into a target directory with a versioned filename."
+inputs:
+  tarball_path:
+    description: "Absolute path to upstream distribution tarball"
+    required: true
+  version:
+    description: "Resolved version (without leading v)"
+    required: true
+  output_dir:
+    description: "Directory to place the repacked tar.gz (e.g., snap/local or flatpak/local)"
+    required: true
+outputs:
+  output_tarball:
+    description: "Absolute path to the repacked tarball"
+    value: ${{ steps.pack.outputs.output_tarball }}
+runs:
+  using: "composite"
+  steps:
+    - name: Repack tarball
+      id: pack
+      shell: bash
+      run: |
+        set -euo pipefail
+        TARBALL='${{ inputs.tarball_path }}'
+        VERSION='${{ inputs.version }}'
+        OUTDIR='${{ inputs.output_dir }}'
+        if [ ! -f "$TARBALL" ]; then
+          echo "::warning::Tarball not found at recorded path: $TARBALL"
+          if [ -f "upstream/$TARBALL" ]; then
+            TARBALL="upstream/$TARBALL"
+          fi
+        fi
+        if [ ! -f "$TARBALL" ]; then
+          echo "::error::Tarball not found: $TARBALL"
+          exit 1
+        fi
+        WORK=$(mktemp -d -p "$PWD" workpkg-XXXXXX)
+        echo "::debug::Work dir: $WORK"
+        tar -xzf "$TARBALL" -C "$WORK"
+        find "$WORK" -maxdepth 2 -type f -print | sed 's/^/::debug::[payload] /' || true
+        mkdir -p "$OUTDIR"
+        OUT_TAR="$OUTDIR/cryptad-jlink-v${VERSION}.tar.gz"
+        tar -C "$WORK" -czf "$OUT_TAR" ./
+        ls -la "$OUTDIR" | sed 's/^/::debug::[outdir] /'
+        echo "output_tarball=$OUT_TAR" >> "$GITHUB_OUTPUT"
+        # cleanup
+        rm -rf "$WORK"
+

@@ -1,0 +1,31 @@
+name: "Render desktop file from template"
+description: "Renders a .desktop from a shared template by substituting Exec and Icon."
+inputs:
+  template_path:
+    description: "Path to the shared desktop template (e.g., desktop/cryptad.desktop.template)"
+    required: true
+  exec_name:
+    description: "Value for Exec=..."
+    required: true
+  icon_name:
+    description: "Value for Icon=..."
+    required: true
+  output_path:
+    description: "Destination path for the rendered .desktop file"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Render desktop file
+      shell: bash
+      run: |
+        set -euo pipefail
+        tpl='${{ inputs.template_path }}'
+        out='${{ inputs.output_path }}'
+        mkdir -p "$(dirname "$out")"
+        sed -e "s~__EXEC_NAME__~${{ inputs.exec_name }}~g" \
+            -e "s~__ICON_NAME__~${{ inputs.icon_name }}~g" \
+            "$tpl" > "$out"
+        echo "::debug::Rendered desktop file: $out"
+        sed -n '1,120p' "$out" | sed 's/^/::debug::[desktop] /'
+
