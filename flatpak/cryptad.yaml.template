@@ -3,7 +3,7 @@ branch: v__VERSION__
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
-command: cryptad
+command: cryptad-launcher
 finish-args:
   - --share=network
   - --socket=wayland
