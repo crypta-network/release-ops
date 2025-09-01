@@ -215,7 +215,9 @@ jobs:
           sudo apt-get install -y flatpak flatpak-builder
           echo "::endgroup::"
           echo "::group::Configure flathub remote"
-          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          # Add flathub to the user installation (match --user usage later)
+          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user remotes -d | sed 's/^/::debug::[remotes] /'
           echo "::endgroup::"
           echo "::group::Install freedesktop runtime+sdk 24.08"
           flatpak --user --noninteractive install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
