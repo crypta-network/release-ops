@@ -21,6 +21,7 @@ parts/
 # Generated snap files
 snap/snapcraft.yaml
 snap/local/
+snap/gui/cryptad.desktop
 
 # Local work dirs
 workpkg/
@@ -32,3 +33,10 @@ cryptad-v*.tar.gz
 
 # Extracted payload directories (should never be committed)
 cryptad-v*/
+
+# Flatpak build artifacts and generated files
+flatpak/cryptad.yaml
+flatpak/cryptad.desktop
+flatpak/local/
+repo/
+builddir/

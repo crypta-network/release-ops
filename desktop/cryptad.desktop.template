@@ -3,11 +3,10 @@ Type=Application
 Name=Crypta
 GenericName=Crypta
 Comment=Launch the Crypta Daemon (cryptad)
-Exec=/bin/sh -c 'exec setsid -f snap run cryptad.cryptad-launcher </dev/null >/dev/null 2>&1'
-TryExec=/snap/bin/cryptad.cryptad-launcher
+Exec=__EXEC_NAME__
 Terminal=false
 StartupNotify=false
-Icon=${SNAP}/meta/gui/cryptad.png
+Icon=__ICON_NAME__
 Categories=Network;Utility;
 Keywords=crypta;cryptad;p2p;daemon;launcher;
-X-SnapInstanceName=cryptad
+

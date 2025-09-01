@@ -60,10 +60,10 @@ parts:
       find "$CRAFT_PRIME" -type f -path '*/lib/jspawnhelper' -exec chmod 0755 {} + || true
       rm -f "$CRAFT_PRIME"/bin/wrapper-macosx-* || true
       rm -f "$CRAFT_PRIME"/lib/libwrapper-macosx-* || true
-      # Ensure desktop entry and icon for cryptad-launcher are present under prime meta/gui for Snapcraft validation
+      # Ensure desktop entry and icon are present under prime meta/gui for Snapcraft validation
       mkdir -p "$CRAFT_PRIME/meta/gui"
-      if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad-launcher.desktop" ]; then
-        cp -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad-launcher.desktop" "$CRAFT_PRIME/meta/gui/cryptad-launcher.desktop"
+      if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.desktop" ]; then
+        cp -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.desktop" "$CRAFT_PRIME/meta/gui/cryptad.desktop"
       fi
       # Reuse same icon for launcher
       if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.png" ]; then
@@ -111,7 +111,7 @@ apps:
   cryptad-launcher:
     command: bin/cryptad-launcher
     extensions: [ gnome ]
-    desktop: meta/gui/cryptad-launcher.desktop
+    desktop: meta/gui/cryptad.desktop
     environment:
       CRYPTAD_ALLOW_ROOT: "1"
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"

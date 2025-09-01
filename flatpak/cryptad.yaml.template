@@ -1,0 +1,38 @@
+id: network.crypta.cryptad
+branch: v__VERSION__
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: bin/cryptad
+finish-args:
+  - --share=network
+  - --env=CRYPTAD_ALLOW_ROOT=1
+modules:
+  - name: cryptad
+    buildsystem: simple
+    build-commands:
+      - install -d /app
+      - tar -xzf flatpak/local/cryptad-jlink-v__VERSION__.tar.gz -C /app
+      - install -Dm644 flatpak/cryptad.desktop /app/share/applications/network.crypta.cryptad.desktop
+      - install -Dm644 desktop/icons/cryptad.png /app/share/icons/hicolor/512x512/apps/network.crypta.cryptad.png
+      - |
+        if [ -d /app/bin ]; then
+          find /app/bin -maxdepth 1 -type f \( -name cryptad -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
+        fi
+      - find /app -type f -path '*/bin/java' -exec chmod 0755 {} + || true
+      - find /app -type f -path '*/lib/jspawnhelper' -exec chmod 0755 {} + || true
+      - rm -f /app/bin/wrapper-macosx-* || true
+      - rm -f /app/lib/libwrapper-macosx-* || true
+      - |
+        if [ "${FLATPAK_ARCH}" = "x86_64" ]; then
+          rm -f /app/bin/wrapper-linux-arm-64 /app/lib/libwrapper-linux-arm-64.so || true;
+        elif [ "${FLATPAK_ARCH}" = "aarch64" ]; then
+          rm -f /app/bin/wrapper-linux-x86-64 /app/lib/libwrapper-linux-x86-64.so || true;
+        fi
+    sources:
+      - type: file
+        path: flatpak/local/cryptad-jlink-v__VERSION__.tar.gz
+      - type: file
+        path: flatpak/cryptad.desktop
+      - type: file
+        path: desktop/icons/cryptad.png
