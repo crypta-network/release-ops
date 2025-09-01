@@ -242,7 +242,8 @@ jobs:
           APPID='network.crypta.cryptad'
           BRANCH="v${VERSION}"
           echo "::group::Export repo"
-          flatpak build-export --arch=${{ matrix.flatpak_arch }} repo builddir
+          # Export to the same branch we'll bundle (defaults to 'master' if omitted)
+          flatpak build-export --arch=${{ matrix.flatpak_arch }} repo builddir "$BRANCH"
           echo "::endgroup::"
           echo "::group::Create bundle"
           BUNDLE="cryptad-flatpak-v${VERSION}-${{ matrix.flatpak_arch }}.flatpak"
