@@ -11,8 +11,20 @@ modules:
   - name: cryptad
     buildsystem: simple
     build-commands:
+      - echo "[debug] CWD:" && pwd && ls -la
+      - echo "[debug] Tarball header (first 120 entries):" && tar -tzf cryptad-jlink-v__VERSION__.tar.gz | sed -n '1,120p'
       - install -d /app
       - tar --strip-components=1 -xzf cryptad-jlink-v__VERSION__.tar.gz -C /app
+      - |
+        echo "[debug] /app tree (top 2 levels):";
+        find /app -maxdepth 2 -print | sed 's/^/[app] /';
+        if [ -f /app/bin/cryptad ]; then
+          echo "[debug] FOUND /app/bin/cryptad";
+          ls -la /app/bin | sed 's/^/[app-bin] /';
+        else
+          echo "[debug] MISSING /app/bin/cryptad; searching...";
+          find /app -name cryptad -type f -print | sed 's/^/[search] /' || true;
+        fi
       - install -Dm644 cryptad.desktop /app/share/applications/network.crypta.cryptad.desktop
       - install -Dm644 cryptad.png /app/share/icons/hicolor/512x512/apps/network.crypta.cryptad.png
       - |
