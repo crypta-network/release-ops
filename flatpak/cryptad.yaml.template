@@ -13,6 +13,22 @@ modules:
     build-commands:
       - install -d /app
       - tar -xzf cryptad-jlink-v__VERSION__.tar.gz -C /app
+      - |
+        # Ensure a runnable entrypoint exists at /app/bin/cryptad for Flatpak validation
+        if [ ! -f /app/bin/cryptad ]; then
+          echo "Creating fallback launcher at /app/bin/cryptad";
+          if [ "${FLATPAK_ARCH}" = "x86_64" ]; then
+            WRAPPER=/app/bin/wrapper-linux-x86-64;
+          else
+            WRAPPER=/app/bin/wrapper-linux-arm-64;
+          fi;
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'set -eu' \
+            'exec "'"${WRAPPER}"'" -c /app/conf/wrapper.conf "$@"' \
+            > /app/bin/cryptad;
+          chmod 0755 /app/bin/cryptad;
+        fi
       - install -Dm644 cryptad.desktop /app/share/applications/network.crypta.cryptad.desktop
       - install -Dm644 cryptad.png /app/share/icons/hicolor/512x512/apps/network.crypta.cryptad.png
       - |
