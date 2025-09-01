@@ -199,7 +199,7 @@ jobs:
           set -euo pipefail
           echo "::group::Render shared desktop file for Flatpak"
           mkdir -p flatpak
-          exec_name=cryptad
+          exec_name=cryptad-launcher
           icon_name='network.crypta.cryptad'
           sed -e "s/__EXEC_NAME__/${exec_name}/g" \
               -e "s~__ICON_NAME__~${icon_name}~g" \

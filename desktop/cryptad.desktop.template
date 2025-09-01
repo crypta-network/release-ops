@@ -2,11 +2,10 @@
 Type=Application
 Name=Crypta
 GenericName=Crypta
-Comment=Launch the Crypta Daemon (cryptad)
+Comment=Launch the Crypta GUI (cryptad-launcher)
 Exec=__EXEC_NAME__
 Terminal=false
 StartupNotify=false
 Icon=__ICON_NAME__
 Categories=Network;Utility;
 Keywords=crypta;cryptad;p2p;daemon;launcher;
-

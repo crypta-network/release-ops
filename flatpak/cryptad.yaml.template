@@ -6,6 +6,10 @@ sdk: org.freedesktop.Sdk
 command: cryptad
 finish-args:
   - --share=network
+  - --socket=wayland
+  - --socket=x11
+  - --share=ipc
+  - --device=dri
   - --env=CRYPTAD_ALLOW_ROOT=1
 modules:
   - name: cryptad
@@ -20,16 +24,22 @@ modules:
         find /app -maxdepth 2 -print | sed 's/^/[app] /';
         if [ -f /app/bin/cryptad ]; then
           echo "[debug] FOUND /app/bin/cryptad";
-          ls -la /app/bin | sed 's/^/[app-bin] /';
         else
           echo "[debug] MISSING /app/bin/cryptad; searching...";
           find /app -name cryptad -type f -print | sed 's/^/[search] /' || true;
         fi
+        if [ -f /app/bin/cryptad-launcher ]; then
+          echo "[debug] FOUND /app/bin/cryptad-launcher";
+        else
+          echo "[debug] MISSING /app/bin/cryptad-launcher; searching...";
+          find /app -name cryptad-launcher -type f -print | sed 's/^/[search] /' || true;
+        fi
+        ls -la /app/bin | sed 's/^/[app-bin] /' || true
       - install -Dm644 cryptad.desktop /app/share/applications/network.crypta.cryptad.desktop
       - install -Dm644 cryptad-512.png /app/share/icons/hicolor/512x512/apps/network.crypta.cryptad.png
       - |
         if [ -d /app/bin ]; then
-          find /app/bin -maxdepth 1 -type f \( -name cryptad -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
+          find /app/bin -maxdepth 1 -type f \( -name cryptad -o -name cryptad-launcher -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
         fi
       - find /app -type f -path '*/bin/java' -exec chmod 0755 {} + || true
       - find /app -type f -path '*/lib/jspawnhelper' -exec chmod 0755 {} + || true
