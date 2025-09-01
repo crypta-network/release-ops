@@ -38,5 +38,6 @@ cryptad-v*/
 flatpak/cryptad.yaml
 flatpak/cryptad.desktop
 flatpak/local/
+flatpak/network.crypta.cryptad.metainfo.xml
 repo/
 builddir/

@@ -207,6 +207,17 @@ jobs:
           sed -n '1,120p' flatpak/cryptad.desktop | sed 's/^/::debug::[desktop] /'
           echo "::endgroup::"
 
+      - name: Render AppStream metainfo (Flatpak)
+        run: |
+          set -euo pipefail
+          echo "::group::Render AppStream metainfo"
+          VERSION='${{ steps.ver.outputs.version }}'
+          sed "s/__VERSION__/${VERSION}/g" \
+            flatpak/network.crypta.cryptad.metainfo.xml.template > \
+            flatpak/network.crypta.cryptad.metainfo.xml
+          sed -n '1,120p' flatpak/network.crypta.cryptad.metainfo.xml | sed 's/^/::debug::[metainfo] /'
+          echo "::endgroup::"
+
       - name: Install Flatpak tooling and runtimes
         run: |
           set -euo pipefail

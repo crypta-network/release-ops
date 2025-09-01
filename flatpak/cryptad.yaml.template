@@ -37,6 +37,7 @@ modules:
         ls -la /app/bin | sed 's/^/[app-bin] /' || true
       - install -Dm644 cryptad.desktop /app/share/applications/network.crypta.cryptad.desktop
       - install -Dm644 cryptad-512.png /app/share/icons/hicolor/512x512/apps/network.crypta.cryptad.png
+      - install -Dm644 network.crypta.cryptad.metainfo.xml /app/share/metainfo/network.crypta.cryptad.metainfo.xml
       - |
         if [ -d /app/bin ]; then
           find /app/bin -maxdepth 1 -type f \( -name cryptad -o -name cryptad-launcher -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
@@ -58,3 +59,5 @@ modules:
         path: cryptad.desktop
       - type: file
         path: ../desktop/icons/cryptad-512.png
+      - type: file
+        path: network.crypta.cryptad.metainfo.xml
