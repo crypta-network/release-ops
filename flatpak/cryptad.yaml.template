@@ -26,7 +26,7 @@ modules:
           find /app -name cryptad -type f -print | sed 's/^/[search] /' || true;
         fi
       - install -Dm644 cryptad.desktop /app/share/applications/network.crypta.cryptad.desktop
-      - install -Dm644 cryptad.png /app/share/icons/hicolor/512x512/apps/network.crypta.cryptad.png
+      - install -Dm644 cryptad-512.png /app/share/icons/hicolor/512x512/apps/network.crypta.cryptad.png
       - |
         if [ -d /app/bin ]; then
           find /app/bin -maxdepth 1 -type f \( -name cryptad -o -name 'wrapper*' \) -exec chmod 0755 {} + || true
@@ -47,4 +47,4 @@ modules:
       - type: file
         path: cryptad.desktop
       - type: file
-        path: ../desktop/icons/cryptad.png
+        path: ../desktop/icons/cryptad-512.png
