@@ -22,10 +22,13 @@ runs:
         set -euo pipefail
         tpl='${{ inputs.template_path }}'
         out='${{ inputs.output_path }}'
+        # Assign inputs to vars first so any literal ${...} in values (e.g., ${SNAP})
+        # are preserved as text and not expanded by the shell under 'set -u'.
+        exec_name='${{ inputs.exec_name }}'
+        icon_name='${{ inputs.icon_name }}'
         mkdir -p "$(dirname "$out")"
-        sed -e "s~__EXEC_NAME__~${{ inputs.exec_name }}~g" \
-            -e "s~__ICON_NAME__~${{ inputs.icon_name }}~g" \
+        sed -e "s~__EXEC_NAME__~$exec_name~g" \
+            -e "s~__ICON_NAME__~$icon_name~g" \
             "$tpl" > "$out"
         echo "::debug::Rendered desktop file: $out"
         sed -n '1,120p' "$out" | sed 's/^/::debug::[desktop] /'
-
