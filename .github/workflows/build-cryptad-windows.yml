@@ -1,0 +1,114 @@
+name: Build cryptad windows installers (x64/arm64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3). If set, checks out release/<version> in upstream"
+        required: false
+        default: ""
+      branch:
+        description: "Branch or tag to build when version is empty"
+        required: false
+        default: "main"
+
+jobs:
+  resolve:
+    name: Resolve upstream ref
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.set.outputs.ref }}
+    steps:
+      - name: Decide cryptad git ref
+        id: set
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "ref=release/${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ inputs.branch }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  # This job calls the reusable workflow that builds Windows installers via Inno Setup
+  windows:
+    name: Upstream Windows build (reusable)
+    needs: [resolve]
+    uses: crypta-network/wininstaller-innosetup/.github/workflows/build.yml@master
+    secrets: inherit
+    with:
+      # Map our version/branch inputs into the expected cryptad-git-ref
+      cryptad-git-ref: ${{ needs.resolve.outputs.ref }}
+      jdk-version: '21'
+      # Use default matrix (windows-latest, windows-11-arm) provided by reusable workflow
+      upload-installer: true
+
+  collect:
+    name: Collect + reupload artifacts
+    needs: [windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download installer (x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: cryptainstaller-x64
+          path: artifacts/cryptainstaller-x64
+          if-no-files-found: warn
+
+      - name: Download installer (arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: cryptainstaller-arm64
+          path: artifacts/cryptainstaller-arm64
+          if-no-files-found: warn
+
+      - name: Download jpackage image (x64)
+        uses: actions/download-artifact@v4
+        with:
+          name: cryptad-jpackage-x64
+          path: artifacts/cryptad-jpackage-x64
+          if-no-files-found: warn
+
+      - name: Download jpackage image (arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: cryptad-jpackage-arm64
+          path: artifacts/cryptad-jpackage-arm64
+          if-no-files-found: warn
+
+      - name: List downloaded files
+        run: |
+          echo "::group::Downloaded artifacts"
+          find artifacts -type f -maxdepth 2 -print | sed 's/^/::debug::[dl] /' || true
+          echo "::endgroup::"
+
+      - name: Upload Windows installer (x64)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-windows-installer-x64
+          path: artifacts/cryptainstaller-x64/**
+          if-no-files-found: warn
+
+      - name: Upload Windows installer (arm64)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-windows-installer-arm64
+          path: artifacts/cryptainstaller-arm64/**
+          if-no-files-found: warn
+
+      - name: Upload Windows jpackage image (x64)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-windows-jpackage-x64
+          path: artifacts/cryptad-jpackage-x64/**
+          if-no-files-found: warn
+
+      - name: Upload Windows jpackage image (arm64)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-windows-jpackage-arm64
+          path: artifacts/cryptad-jpackage-arm64/**
+          if-no-files-found: warn
