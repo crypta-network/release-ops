@@ -212,6 +212,13 @@ High‑level flow:
 
 ## Known Pitfalls (and Avoided Patterns)
 
+- macOS specific: GitHub Actions macOS runners are prone to out‑of‑memory
+  errors when executing `gradle test`. For this reason, unit tests are
+  intentionally disabled in the macOS DMG workflow (see
+  `.github/workflows/build-cryptad-macos.yml`), where `prepare-cryptad`
+  is invoked with `run_tests=false` and Gradle is run with `-x test`.
+  Rely on Linux/Windows CI for test execution; the macOS job is focused on
+  packaging only.
 - Don’t use `snapcore/action-build` or LXD cross‑build for this project; it led to wrong JRE arch or network issues.
 - Don’t trim platform assets in the workflow; prefer Snapcraft `override-prime` as the single source of truth.
 - If Gradle `printVersion` is absent, the workflow falls back to `gradle.properties` → `version:`, then `git describe`.
