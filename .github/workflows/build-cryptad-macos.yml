@@ -51,12 +51,14 @@ jobs:
           sed -n '1,240p' ../_tasks_all.txt | sed 's/^/::debug::[tasks] /' || true
           echo "::endgroup::"
 
-          mapfile -t ALL_TASKS < <(awk '/^[[:alnum:]:._-]+\s+-/{print $1}' ../_tasks_all.txt)
-          printf '%s\n' "${ALL_TASKS[@]}" | sed 's/^/::debug::[parsed] /' || true
+          # macOS runners ship with bash 3.2 which lacks 'mapfile'.
+          # Use POSIX pipes/vars instead of bash arrays for compatibility.
+          ALL_TASKS=$(awk '/^[[:alnum:]:._-]+\s+-/{print $1}' ../_tasks_all.txt | tr -d '\r')
+          printf '%s\n' "$ALL_TASKS" | sed 's/^/::debug::[parsed] /' || true
 
           pick_task() {
             local pattern="$1"; shift
-            printf '%s\n' "${ALL_TASKS[@]}" | grep -E "${pattern}" | head -n1 || true
+            printf '%s\n' "$ALL_TASKS" | grep -E "${pattern}" | head -n1 || true
           }
 
           DMG_TASK=$(pick_task '(^|:)(jpackage[Dd]mg)$|(^|:)(dmg|package[Dd]mg|create[Dd]mg)(:|$)')
