@@ -33,6 +33,8 @@ jobs:
           version: ${{ inputs.version }}
           branch: ${{ inputs.branch }}
           run_tests: "false"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Environment diag (arch + OS)
         run: |

@@ -130,7 +130,8 @@ runs:
       shell: bash
       working-directory: ${{ inputs.upstream_path }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Expect the caller workflow to pass GITHUB_TOKEN via env passthrough
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
       run: |
         set -euo pipefail
         D(){ echo "::debug::$*"; }
