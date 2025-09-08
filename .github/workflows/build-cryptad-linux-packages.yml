@@ -1,0 +1,150 @@
+name: Build cryptad linux packages (deb/rpm)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3). If set, checks out release/<version>"
+        required: false
+        default: ""
+      branch:
+        description: "Branch or tag to build when version is empty"
+        required: false
+        default: "main"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout release-ops repo
+        uses: actions/checkout@v4
+
+      - name: Prepare upstream (version + baseline build)
+        id: prepare
+        uses: ./.github/actions/prepare-cryptad
+        with:
+          version: ${{ inputs.version }}
+          branch: ${{ inputs.branch }}
+
+      - name: Install packaging prerequisites (rpm, fakeroot)
+        run: |
+          set -euo pipefail
+          echo "::group::Install rpm and related tools"
+          sudo apt-get update
+          # rpm is required for .rpm creation; fakeroot assists Debian packaging via jpackage when needed
+          sudo apt-get install -y rpm fakeroot
+          echo "::endgroup::"
+
+      - name: Discover jpackage tasks (deb/rpm)
+        id: tasks
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          D(){ echo "::debug::$*"; }
+          echo "::group::Gradle tasks --all (scan for jpackage)"
+          ./gradlew -q tasks --all > ../_tasks_all.txt || true
+          sed -n '1,240p' ../_tasks_all.txt | sed 's/^/::debug::[tasks] /' || true
+          echo "::endgroup::"
+
+          # Extract candidate task names from the tasks listing
+          # Lines typically look like: "jpackageDeb - Creates a Debian package"
+          mapfile -t ALL_TASKS < <(awk '/^[[:alnum:]:._-]+\s+-/{print $1}' ../_tasks_all.txt)
+          printf '%s\n' "${ALL_TASKS[@]}" | sed 's/^/::debug::[parsed] /' || true
+
+          pick_task() {
+            local pattern="$1"; shift
+            printf '%s\n' "${ALL_TASKS[@]}" | grep -E "${pattern}" | head -n1 || true
+          }
+
+          # Prefer explicit jpackage tasks if present; fall back to common alternatives
+          DEB_TASK=$(pick_task '(^|:)(jpackage[Dd]eb)$|(^|:)(deb|package[Dd]eb|create[Dd]eb)(:|$)')
+          RPM_TASK=$(pick_task '(^|:)(jpackage[Rr]pm)$|(^|:)(rpm|package[Rr]pm|create[Rr]pm)(:|$)')
+
+          if [ -z "${DEB_TASK:-}" ]; then
+            DEB_TASK=jpackageDeb
+          fi
+          if [ -z "${RPM_TASK:-}" ]; then
+            RPM_TASK=jpackageRpm
+          fi
+
+          echo "::debug::Selected deb task: $DEB_TASK"
+          echo "::debug::Selected rpm task: $RPM_TASK"
+          echo "deb_task=$DEB_TASK" >> "$GITHUB_OUTPUT"
+          echo "rpm_task=$RPM_TASK" >> "$GITHUB_OUTPUT"
+
+      - name: Build Linux packages via Gradle jpackage
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.prepare.outputs.version }}'
+          echo "::group::Run jpackage tasks"
+          echo "::debug::deb task: ${{ steps.tasks.outputs.deb_task }}"
+          echo "::debug::rpm task: ${{ steps.tasks.outputs.rpm_task }}"
+          # Use --no-daemon for CI determinism; tolerate missing one task by running separately
+          FAILED=0
+          if ! ./gradlew --no-daemon -S -x test "${{ steps.tasks.outputs.deb_task }}"; then
+            echo "::warning::Deb task failed or not found: ${{ steps.tasks.outputs.deb_task }}"
+            FAILED=$((FAILED+1))
+          fi
+          if ! ./gradlew --no-daemon -S -x test "${{ steps.tasks.outputs.rpm_task }}"; then
+            echo "::warning::Rpm task failed or not found: ${{ steps.tasks.outputs.rpm_task }}"
+            FAILED=$((FAILED+1))
+          fi
+          if [ "$FAILED" -ge 2 ]; then
+            echo "::error::Neither deb nor rpm task succeeded. Check upstream jpackage Gradle config."
+            exit 1
+          fi
+          echo "::endgroup::"
+
+      - name: Locate built packages
+        id: locate
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::group::Find deb/rpm outputs"
+          # jpackage defaults to build/jpackage; search broadly just in case
+          find . -type f \( -name '*.deb' -o -name '*.rpm' \) -print | tee ../_packages_list.txt | sed 's/^/::debug::[pkg] /' || true
+          echo "::endgroup::"
+          DEB_FILES=$(grep -E '\.deb$' ../_packages_list.txt || true)
+          RPM_FILES=$(grep -E '\.rpm$' ../_packages_list.txt || true)
+          echo "::debug::deb files: ${DEB_FILES:-<none>}"
+          echo "::debug::rpm files: ${RPM_FILES:-<none>}"
+          # Export relative globs for artifact upload (space/newline separated ok)
+          if [ -n "$DEB_FILES" ]; then
+            printf 'deb_paths<<EOF\n%s\nEOF\n' "$DEB_FILES" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$RPM_FILES" ]; then
+            printf 'rpm_paths<<EOF\n%s\nEOF\n' "$RPM_FILES" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload deb package(s)
+        if: ${{ steps.locate.outputs.deb_paths != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-deb-${{ steps.prepare.outputs.version }}-${{ matrix.arch }}
+          path: |
+            upstream/build/jpackage/*.deb
+            ${{ steps.locate.outputs.deb_paths }}
+          if-no-files-found: warn
+
+      - name: Upload rpm package(s)
+        if: ${{ steps.locate.outputs.rpm_paths != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-rpm-${{ steps.prepare.outputs.version }}-${{ matrix.arch }}
+          path: |
+            upstream/build/jpackage/*.rpm
+            ${{ steps.locate.outputs.rpm_paths }}
+          if-no-files-found: warn
+
