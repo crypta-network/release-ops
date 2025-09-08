@@ -128,14 +128,45 @@ jobs:
             printf 'rpm_paths<<EOF\n%s\nEOF\n' "$RPM_FILES" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Prepare flat artifact dir (deb)
+        if: ${{ steps.locate.outputs.deb_paths != '' }}
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts-deb
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            # strip leading ./ if present
+            f=${f#./}
+            cp -f "$f" ../artifacts-deb/
+          done <<< "${{ steps.locate.outputs.deb_paths }}"
+          echo "::group::Flattened deb files"
+          ls -la ../artifacts-deb | sed 's/^/::debug::[deb-flat] /'
+          echo "::endgroup::"
+
+      - name: Prepare flat artifact dir (rpm)
+        if: ${{ steps.locate.outputs.rpm_paths != '' }}
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts-rpm
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            f=${f#./}
+            cp -f "$f" ../artifacts-rpm/
+          done <<< "${{ steps.locate.outputs.rpm_paths }}"
+          echo "::group::Flattened rpm files"
+          ls -la ../artifacts-rpm | sed 's/^/::debug::[rpm-flat] /'
+          echo "::endgroup::"
+
       - name: Upload deb package(s)
         if: ${{ steps.locate.outputs.deb_paths != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-deb-${{ steps.prepare.outputs.version }}-${{ matrix.arch }}
-          path: |
-            upstream/build/jpackage/*.deb
-            ${{ steps.locate.outputs.deb_paths }}
+          path: artifacts-deb
           if-no-files-found: warn
 
       - name: Upload rpm package(s)
@@ -143,8 +174,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-rpm-${{ steps.prepare.outputs.version }}-${{ matrix.arch }}
-          path: |
-            upstream/build/jpackage/*.rpm
-            ${{ steps.locate.outputs.rpm_paths }}
+          path: artifacts-rpm
           if-no-files-found: warn
-
