@@ -235,3 +235,9 @@ High‑level flow:
   https://documentation.ubuntu.com/snapcraft/stable/explanation/architectures/
 - Flatpak docs:
   https://docs.flatpak.org/en/latest/
+
+## Agent Git Safety Rules
+
+- Never create a new branch or open a pull request without explicit user permission.
+- Always ask before running any `git push` to any remote or branch.
+- Never set `git user.name` or `git user.email` yourself. If they are missing, remind the user to configure them.
