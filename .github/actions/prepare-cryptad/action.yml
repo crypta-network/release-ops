@@ -17,6 +17,10 @@ inputs:
     description: "Path to checkout upstream into"
     required: false
     default: "upstream"
+  run_tests:
+    description: "Whether to run tests during the build (true/false)"
+    required: false
+    default: "true"
 outputs:
   version:
     description: "Resolved version"
@@ -149,7 +153,18 @@ runs:
           -x spotlessKotlinGradleApply
           -x spotlessInternalRegisterDependencies
         )
-        ./gradlew -S "${SKIPS[@]}" build
+        if [ "${{ inputs.run_tests }}" != "true" ]; then
+          SKIPS+=( -x test )
+          echo "::debug::Tests are disabled by input run_tests=false"
+        fi
+        # macOS runners have stricter thread limits; reduce concurrency to avoid EAGAIN/native-thread failures
+        EXTRA_ARGS=()
+        if [ "${RUNNER_OS:-}" = "macOS" ]; then
+          export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -XX:ActiveProcessorCount=2 -Djava.util.concurrent.ForkJoinPool.common.parallelism=2"
+          EXTRA_ARGS+=( --no-parallel --max-workers=2 -Dorg.gradle.workers.max=2 -Djunit.jupiter.execution.parallel.enabled=false )
+          echo "::debug::Applying macOS concurrency limits: ${EXTRA_ARGS[*]}"
+        fi
+        ./gradlew -S "${SKIPS[@]}" ${EXTRA_ARGS[@]} build
         echo "::endgroup::"
         VERSION='${{ steps.ver.outputs.version }}'
         TARBALL="build/distributions/cryptad-jlink-v${VERSION}.tar.gz"
