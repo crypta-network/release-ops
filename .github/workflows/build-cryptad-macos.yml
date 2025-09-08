@@ -1,0 +1,114 @@
+name: Build cryptad macOS dmg (arm64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3). If set, checks out release/<version>"
+        required: false
+        default: ""
+      branch:
+        description: "Branch or tag to build when version is empty"
+        required: false
+        default: "main"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14
+
+    steps:
+      - name: Checkout release-ops repo
+        uses: actions/checkout@v4
+
+      - name: Prepare upstream (version + baseline build)
+        id: prepare
+        uses: ./.github/actions/prepare-cryptad
+        with:
+          version: ${{ inputs.version }}
+          branch: ${{ inputs.branch }}
+
+      - name: Environment diag (arch + OS)
+        run: |
+          echo "::debug::Host arch: $(uname -m)"
+          echo "::debug::macOS: $(sw_vers | tr '\n' ' ' )"
+          echo "::debug::Java: $(java -version 2>&1 | head -n1)"
+
+      - name: Discover jpackage task (dmg)
+        id: tasks
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::group::Gradle tasks --all (scan for dmg)"
+          ./gradlew -q tasks --all > ../_tasks_all.txt || true
+          sed -n '1,240p' ../_tasks_all.txt | sed 's/^/::debug::[tasks] /' || true
+          echo "::endgroup::"
+
+          mapfile -t ALL_TASKS < <(awk '/^[[:alnum:]:._-]+\s+-/{print $1}' ../_tasks_all.txt)
+          printf '%s\n' "${ALL_TASKS[@]}" | sed 's/^/::debug::[parsed] /' || true
+
+          pick_task() {
+            local pattern="$1"; shift
+            printf '%s\n' "${ALL_TASKS[@]}" | grep -E "${pattern}" | head -n1 || true
+          }
+
+          DMG_TASK=$(pick_task '(^|:)(jpackage[Dd]mg)$|(^|:)(dmg|package[Dd]mg|create[Dd]mg)(:|$)')
+          if [ -z "${DMG_TASK:-}" ]; then
+            DMG_TASK=jpackageDmg
+          fi
+          echo "::debug::Selected dmg task: $DMG_TASK"
+          echo "dmg_task=$DMG_TASK" >> "$GITHUB_OUTPUT"
+
+      - name: Build macOS DMG via Gradle jpackage
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          echo "::group::Run jpackage dmg task"
+          echo "::debug::dmg task: ${{ steps.tasks.outputs.dmg_task }}"
+          ./gradlew --no-daemon -S -x test "${{ steps.tasks.outputs.dmg_task }}"
+          echo "::endgroup::"
+
+      - name: Locate built DMG
+        id: locate
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::group::Find dmg outputs"
+          find . -type f -name '*.dmg' -print | tee ../_dmg_list.txt | sed 's/^/::debug::[dmg] /' || true
+          echo "::endgroup::"
+          DMG_FILES=$(cat ../_dmg_list.txt || true)
+          if [ -n "$DMG_FILES" ]; then
+            printf 'dmg_paths<<EOF\n%s\nEOF\n' "$DMG_FILES" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::No .dmg produced by jpackage."
+            exit 1
+          fi
+
+      - name: Prepare flat artifact dir (dmg)
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts-dmg
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            f=${f#./}
+            cp -f "$f" ../artifacts-dmg/
+          done <<< "${{ steps.locate.outputs.dmg_paths }}"
+          echo "::group::Flattened dmg files"
+          ls -la ../artifacts-dmg | sed 's/^/::debug::[dmg-flat] /'
+          echo "::endgroup::"
+
+      - name: Upload macOS DMG (arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-dmg-${{ steps.prepare.outputs.version }}-arm64
+          path: artifacts-dmg
+          if-no-files-found: error
