@@ -1,0 +1,137 @@
+name: Build all cryptad packages + draft upstream release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3). If set, checks out release/<version>"
+        required: false
+        default: ""
+      branch:
+        description: "Branch or tag to build when version is empty"
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM_REPO: crypta-network/cryptad
+
+jobs:
+  snap:
+    name: Snap (amd64/arm64)
+    uses: ./.github/workflows/build-cryptad-snap.yml
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
+      branch: ${{ inputs.branch }}
+
+  flatpak:
+    name: Flatpak (x86_64/aarch64)
+    uses: ./.github/workflows/build-cryptad-flatpak.yml
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
+      branch: ${{ inputs.branch }}
+
+  linux:
+    name: Linux packages (deb/rpm)
+    uses: ./.github/workflows/build-cryptad-linux-packages.yml
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
+      branch: ${{ inputs.branch }}
+
+  macos:
+    name: macOS DMG (arm64)
+    uses: ./.github/workflows/build-cryptad-macos.yml
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
+      branch: ${{ inputs.branch }}
+
+  windows:
+    name: Windows installers (x64/arm64)
+    uses: ./.github/workflows/build-cryptad-windows.yml
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
+      branch: ${{ inputs.branch }}
+
+  release:
+    name: Draft upstream release
+    needs: [snap, flatpak, linux, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release version
+        id: resolve
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          SNAP_VERSION: ${{ needs.snap.outputs.version }}
+          FLATPAK_VERSION: ${{ needs.flatpak.outputs.version }}
+          LINUX_VERSION: ${{ needs.linux.outputs.version }}
+          MACOS_VERSION: ${{ needs.macos.outputs.version }}
+          WINDOWS_VERSION: ${{ needs.windows.outputs.version }}
+        run: |
+          set -euo pipefail
+          pick_first() {
+            for v in "$@"; do
+              if [ -n "$v" ]; then echo "$v"; return 0; fi
+            done
+            return 1
+          }
+          VERSION=$(pick_first "$INPUT_VERSION" "$SNAP_VERSION" "$FLATPAK_VERSION" "$LINUX_VERSION" "$MACOS_VERSION" "$WINDOWS_VERSION" || true)
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not resolve version from inputs or child workflows"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "::notice::Resolved release version: $VERSION (tag v$VERSION)"
+
+      - name: Download all artifacts from child builds
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts to be released
+        run: |
+          echo "::group::Artifacts"
+          find dist -type f -print | sed 's/^/::debug::[artifact] /' || true
+          echo "::endgroup::"
+
+      - name: Generate SHA256 checksums
+        id: checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::group::Compute SHA256 over dist/**"
+          cd dist
+          # Create sorted, portable checksums file
+          find . -type f -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS.txt
+          echo "::debug::$(wc -l < SHA256SUMS.txt) checksum entries"
+          echo "::endgroup::"
+          # Prepare a markdown body including the checksums
+          {
+            echo "## SHA256 Checksums"
+            echo
+            echo '```text'
+            cat SHA256SUMS.txt
+            echo '```'
+          } > RELEASE_BODY.md
+
+      - name: Create draft release in upstream repo
+        uses: softprops/action-gh-release@v2
+        if: ${{ steps.resolve.outputs.version != '' }}
+        with:
+          token: ${{ secrets.UPSTREAM_REPO_TOKEN }}
+          repository: ${{ env.UPSTREAM_REPO }}
+          draft: true
+          tag_name: v${{ steps.resolve.outputs.version }}
+          name: Crypta Daemon v${{ steps.resolve.outputs.version }}
+          generate_release_notes: true
+          body_path: dist/RELEASE_BODY.md
+          files: |
+            dist/**

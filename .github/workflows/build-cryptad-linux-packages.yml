@@ -11,10 +11,28 @@ on:
         description: "Branch or tag to build when version is empty"
         required: false
         default: "main"
+  workflow_call:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3). If set, checks out release/<version>"
+        required: false
+        type: string
+        default: ""
+      branch:
+        description: "Branch or tag to build when version is empty"
+        required: false
+        type: string
+        default: "main"
+    outputs:
+      version:
+        description: "Resolved version used for this build"
+        value: ${{ jobs.build.outputs.version }}
 
 jobs:
   build:
     runs-on: ${{ matrix.runner }}
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
     strategy:
       fail-fast: false
       matrix:

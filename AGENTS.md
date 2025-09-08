@@ -199,6 +199,13 @@ High‑level flow:
   - The upstream launcher rejects root unless `CRYPTAD_ALLOW_ROOT` is set; the snap sets this env var.
   - Flatpak sets the same env var via `finish-args`.
 
+### Build Manager + Draft Release
+
+- A manager workflow `.github/workflows/release-cryptad-manager.yml` calls all `build-cryptad-*` workflows (snap, flatpak, linux-packages, macos, windows) and then drafts a release in the upstream repo `crypta-network/cryptad`.
+- All `build-cryptad-*` workflows remain manually callable (`workflow_dispatch`) and are also reusable (`workflow_call`) so the manager can invoke them.
+- The manager accepts the same `version`/`branch` inputs and resolves a final `version` from the child workflows if `version` is empty.
+- To publish the draft release in the upstream repository, add a repository secret `UPSTREAM_REPO_TOKEN` with `repo` scope (PAT) that has permission to create releases in `crypta-network/cryptad`.
+
 ## Future Enhancements
 
 - Optionally run as a daemon:

@@ -11,6 +11,23 @@ on:
         description: "Branch or tag to build when version is empty"
         required: false
         default: "main"
+  workflow_call:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3). If set, checks out release/<version> in upstream"
+        required: false
+        type: string
+        default: ""
+      branch:
+        description: "Branch or tag to build when version is empty"
+        required: false
+        type: string
+        default: "main"
+    outputs:
+      # Windows wrapper doesn't resolve the version, but we mirror the input for consistency
+      version:
+        description: "Version input (if provided)"
+        value: ${{ inputs.version }}
 
 jobs:
   resolve:
