@@ -129,6 +129,8 @@ runs:
       id: build
       shell: bash
       working-directory: ${{ inputs.upstream_path }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         set -euo pipefail
         D(){ echo "::debug::$*"; }
