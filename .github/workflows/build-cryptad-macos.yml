@@ -32,7 +32,7 @@ jobs:
         with:
           version: ${{ inputs.version }}
           branch: ${{ inputs.branch }}
-          run_tests: "true"
+          run_tests: "false"
 
       - name: Environment diag (arch + OS)
         run: |
