@@ -157,7 +157,7 @@ runs:
           SKIPS+=( -x test )
           echo "::debug::Tests are disabled by input run_tests=false"
         fi
-        ./gradlew -S "${SKIPS[@]}" build --max-workers=1
+        ./gradlew -S "${SKIPS[@]}" build
         echo "::endgroup::"
         VERSION='${{ steps.ver.outputs.version }}'
         TARBALL="build/distributions/cryptad-jlink-v${VERSION}.tar.gz"
