@@ -132,6 +132,8 @@ runs:
         D "Java version:" && (java -version 2>&1 | sed 's/^/::debug::[java] /') || true
         D "Gradle version:" && (./gradlew -v 2>&1 | sed 's/^/::debug::[gradle] /') || true
         echo "::endgroup::"
+        # Ensure GitHub API calls made via HttpURLConnection include a User-Agent header on all runners
+        export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Dhttp.agent=cryptad-ci/${GITHUB_RUN_ID:-local}"
         echo "::group::Gradle build"
         # Run tests; skip only Spotless tasks which are not needed for CI packaging
         SKIPS=(
