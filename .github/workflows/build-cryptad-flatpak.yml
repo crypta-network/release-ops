@@ -128,7 +128,7 @@ jobs:
           flatpak build-export --arch=${{ matrix.flatpak_arch }} repo builddir "$BRANCH"
           echo "::endgroup::"
           echo "::group::Create bundle"
-          BUNDLE="cryptad-flatpak-v${VERSION}-${{ matrix.flatpak_arch }}.flatpak"
+          BUNDLE="cryptad-v${VERSION}-${{ matrix.flatpak_arch }}.flatpak"
           flatpak build-bundle repo "$BUNDLE" "$APPID" "$BRANCH" --arch=${{ matrix.flatpak_arch }}
           ls -la "$BUNDLE"
           echo "::endgroup::"
@@ -138,7 +138,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-flatpak-${{ steps.prepare.outputs.version }}-x86_64
-          path: cryptad-flatpak-v${{ steps.prepare.outputs.version }}-x86_64.flatpak
+          path: cryptad-v${{ steps.prepare.outputs.version }}-x86_64.flatpak
           if-no-files-found: error
 
       - name: Upload aarch64 Flatpak bundle
@@ -146,5 +146,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-flatpak-${{ steps.prepare.outputs.version }}-aarch64
-          path: cryptad-flatpak-v${{ steps.prepare.outputs.version }}-aarch64.flatpak
+          path: cryptad-v${{ steps.prepare.outputs.version }}-aarch64.flatpak
           if-no-files-found: error

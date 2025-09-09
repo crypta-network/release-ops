@@ -115,14 +115,28 @@ jobs:
           find . -maxdepth 2 -type f -name '*.snap' -print | sed 's/^/::debug::[snap] /' || true
           echo "::endgroup::"
 
+      - name: Normalize snap filename (cryptad-v<version>-<arch>.snap)
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.prepare.outputs.version }}'
+          ARCH='${{ matrix.arch }}'
+          mkdir -p artifacts-snap
+          SNAP_FILE=$(find . -maxdepth 2 -type f -name "*.snap" -print0 | xargs -0 ls -1t 2>/dev/null | head -n1 || true)
+          if [ -z "$SNAP_FILE" ]; then
+            echo "::error::No .snap produced"
+            exit 1
+          fi
+          OUT="artifacts-snap/cryptad-v${VERSION}-${ARCH}.snap"
+          mv "$SNAP_FILE" "$OUT"
+          echo "::debug::Renamed $SNAP_FILE -> $OUT"
+
       - name: Upload amd64 snap
         if: matrix.arch == 'amd64'
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-snap-${{ steps.prepare.outputs.version }}-amd64
-          path: |
-            ./*_amd64.snap
-            ./snap/*_amd64.snap
+          path: artifacts-snap/cryptad-v${{ steps.prepare.outputs.version }}-amd64.snap
           if-no-files-found: error
 
       - name: Upload arm64 snap
@@ -130,7 +144,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-snap-${{ steps.prepare.outputs.version }}-arm64
-          path: |
-            ./*_arm64.snap
-            ./snap/*_arm64.snap
+          path: artifacts-snap/cryptad-v${{ steps.prepare.outputs.version }}-arm64.snap
           if-no-files-found: error

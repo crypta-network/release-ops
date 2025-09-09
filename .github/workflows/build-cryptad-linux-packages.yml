@@ -181,12 +181,32 @@ jobs:
           ls -la ../artifacts-rpm | sed 's/^/::debug::[rpm-flat] /'
           echo "::endgroup::"
 
+      - name: Normalize filenames (cryptad-v<version>-<arch>.<ext>)
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.prepare.outputs.version }}'
+          ARCH='${{ matrix.arch }}'
+          mkdir -p artifacts-std
+          if compgen -G "artifacts-deb/*.deb" > /dev/null; then
+            DEB_FILE=$(ls -1t artifacts-deb/*.deb | head -n1)
+            OUT_DEB="artifacts-std/cryptad-v${VERSION}-${ARCH}.deb"
+            mv "$DEB_FILE" "$OUT_DEB"
+            echo "::debug::Renamed $DEB_FILE -> $OUT_DEB"
+          fi
+          if compgen -G "artifacts-rpm/*.rpm" > /dev/null; then
+            RPM_FILE=$(ls -1t artifacts-rpm/*.rpm | head -n1)
+            OUT_RPM="artifacts-std/cryptad-v${VERSION}-${ARCH}.rpm"
+            mv "$RPM_FILE" "$OUT_RPM"
+            echo "::debug::Renamed $RPM_FILE -> $OUT_RPM"
+          fi
+
       - name: Upload deb package(s)
         if: ${{ steps.locate.outputs.deb_paths != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-deb-${{ steps.prepare.outputs.version }}-${{ matrix.arch }}
-          path: artifacts-deb
+          path: artifacts-std/*.deb
           if-no-files-found: warn
 
       - name: Upload rpm package(s)
@@ -194,5 +214,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-rpm-${{ steps.prepare.outputs.version }}-${{ matrix.arch }}
-          path: artifacts-rpm
+          path: artifacts-std/*.rpm
           if-no-files-found: warn

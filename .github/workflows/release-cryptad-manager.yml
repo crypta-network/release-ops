@@ -96,19 +96,35 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: List artifacts to be released
+      - name: Filter release files (snap/flatpak/deb/rpm/Windows installers)
+        id: filter
+        shell: bash
         run: |
-          echo "::group::Artifacts"
+          set -euo pipefail
+          mkdir -p dist-release
+          echo "::group::All downloaded artifacts"
           find dist -type f -print | sed 's/^/::debug::[artifact] /' || true
           echo "::endgroup::"
+          echo "::group::Selecting release files"
+          mapfile -t FILES < <(find dist -type f \( -iname '*.snap' -o -iname '*.flatpak' -o -iname '*.deb' -o -iname '*.rpm' -o -iname 'CryptaInstaller*.exe' \) -print)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "::error::No release files found in dist/"
+            exit 1
+          fi
+          for f in "${FILES[@]}"; do
+            cp -f "$f" dist-release/
+            echo "::debug::Kept $(basename "$f")"
+          done
+          echo "::endgroup::"
+          echo "count=${#FILES[@]}" >> "$GITHUB_OUTPUT"
 
       - name: Generate SHA256 checksums
         id: checksums
         shell: bash
         run: |
           set -euo pipefail
-          echo "::group::Compute SHA256 over dist/**"
-          cd dist
+          echo "::group::Compute SHA256 over dist-release/**"
+          cd dist-release
           # Create sorted, portable checksums file
           find . -type f -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS.txt
           echo "::debug::$(wc -l < SHA256SUMS.txt) checksum entries"
@@ -134,4 +150,4 @@ jobs:
           generate_release_notes: true
           body_path: dist/RELEASE_BODY.md
           files: |
-            dist/**
+            dist-release/**
