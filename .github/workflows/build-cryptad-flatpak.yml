@@ -123,12 +123,18 @@ jobs:
           VERSION='${{ steps.prepare.outputs.version }}'
           APPID='network.crypta.cryptad'
           BRANCH="v${VERSION}"
+          # Canonical arch naming for artifact filenames
+          case "${{ matrix.flatpak_arch }}" in
+            x86_64) CANON_ARCH=amd64 ;;
+            aarch64) CANON_ARCH=arm64 ;;
+            *) CANON_ARCH='${{ matrix.flatpak_arch }}' ;;
+          esac
           echo "::group::Export repo"
           # Export to the same branch we'll bundle (defaults to 'master' if omitted)
           flatpak build-export --arch=${{ matrix.flatpak_arch }} repo builddir "$BRANCH"
           echo "::endgroup::"
           echo "::group::Create bundle"
-          BUNDLE="cryptad-v${VERSION}-${{ matrix.flatpak_arch }}.flatpak"
+          BUNDLE="cryptad-v${VERSION}-${CANON_ARCH}.flatpak"
           flatpak build-bundle repo "$BUNDLE" "$APPID" "$BRANCH" --arch=${{ matrix.flatpak_arch }}
           ls -la "$BUNDLE"
           echo "::endgroup::"
@@ -137,14 +143,14 @@ jobs:
         if: matrix.flatpak_arch == 'x86_64'
         uses: actions/upload-artifact@v4
         with:
-          name: cryptad-flatpak-${{ steps.prepare.outputs.version }}-x86_64
-          path: cryptad-v${{ steps.prepare.outputs.version }}-x86_64.flatpak
+          name: cryptad-flatpak-${{ steps.prepare.outputs.version }}-amd64
+          path: cryptad-v${{ steps.prepare.outputs.version }}-amd64.flatpak
           if-no-files-found: error
 
       - name: Upload aarch64 Flatpak bundle
         if: matrix.flatpak_arch == 'aarch64'
         uses: actions/upload-artifact@v4
         with:
-          name: cryptad-flatpak-${{ steps.prepare.outputs.version }}-aarch64
-          path: cryptad-v${{ steps.prepare.outputs.version }}-aarch64.flatpak
+          name: cryptad-flatpak-${{ steps.prepare.outputs.version }}-arm64
+          path: cryptad-v${{ steps.prepare.outputs.version }}-arm64.flatpak
           if-no-files-found: error

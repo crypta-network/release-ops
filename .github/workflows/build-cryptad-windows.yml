@@ -24,10 +24,9 @@ on:
         type: string
         default: "main"
     outputs:
-      # Windows wrapper doesn't resolve the version, but we mirror the input for consistency
       version:
-        description: "Version input (if provided)"
-        value: ${{ inputs.version }}
+        description: "Resolved version (from inputs or upstream)"
+        value: ${{ jobs.resolve.outputs.version }}
 
 jobs:
   resolve:
@@ -35,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ref: ${{ steps.set.outputs.ref }}
+      version: ${{ steps.ver.outputs.version }}
     steps:
       - name: Decide cryptad git ref
         id: set
@@ -45,6 +45,54 @@ jobs:
           else
             echo "ref=${{ inputs.branch }}" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Checkout upstream for version detection
+        uses: actions/checkout@v4
+        with:
+          repository: crypta-network/cryptad
+          ref: ${{ steps.set.outputs.ref }}
+          path: upstream
+
+      - name: Set up JDK 21 (temurin) for Gradle introspection
+        if: ${{ !inputs.version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Resolve version (Gradle tasks/properties or git describe)
+        id: ver
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          VERSION='${{ inputs.version }}'
+          if [ -z "$VERSION" ]; then
+            if ./gradlew -q tasks --all > ../_tasks.txt 2>&1; then
+              if grep -Eq '(^|\s)printVersion(\s|$)' ../_tasks.txt; then
+                if ./gradlew -q printVersion > ../_pver.txt 2>&1; then
+                  VERSION=$(tail -n1 ../_pver.txt | tr -d '\r\n\t' | xargs || true)
+                fi
+              fi
+            fi
+          fi
+          if [ -z "$VERSION" ]; then
+            if ./gradlew -q properties > ../_props.txt 2>&1; then
+              PVER=$(awk -F': ' '/^version:/{print $2; exit}' ../_props.txt | tr -d '\r\n\t' | xargs)
+              if [ -n "$PVER" ] && [ "$PVER" != "unspecified" ]; then
+                VERSION="$PVER"
+              fi
+            fi
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION=$(git describe --tags --always --abbrev=0 2>/dev/null | sed 's/^v//') || true
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "::error::Unable to resolve version"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   # This job calls the reusable workflow that builds Windows installers via Inno Setup
   windows:
@@ -102,24 +150,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION='${{ inputs.version }}'
-          if [ -z "$VERSION" ]; then
-            echo "::warning::inputs.version is empty; leaving original installer names."
-          fi
+          VERSION='${{ needs.resolve.outputs.version }}'
           mkdir -p artifacts-windows
           X64_SRC=$(find artifacts/cryptainstaller-x64 -type f -name '*.exe' -print | head -n1 || true)
           ARM64_SRC=$(find artifacts/cryptainstaller-arm64 -type f -name '*.exe' -print | head -n1 || true)
           if [ -n "$X64_SRC" ] && [ -n "$VERSION" ]; then
             cp -f "$X64_SRC" "artifacts-windows/CryptaInstaller-v${VERSION}-x64.exe"
             echo "::debug::Renamed $X64_SRC -> artifacts-windows/CryptaInstaller-v${VERSION}-x64.exe"
-          elif [ -n "$X64_SRC" ]; then
-            cp -f "$X64_SRC" artifacts-windows/
           fi
           if [ -n "$ARM64_SRC" ] && [ -n "$VERSION" ]; then
             cp -f "$ARM64_SRC" "artifacts-windows/CryptaInstaller-v${VERSION}-arm64.exe"
             echo "::debug::Renamed $ARM64_SRC -> artifacts-windows/CryptaInstaller-v${VERSION}-arm64.exe"
-          elif [ -n "$ARM64_SRC" ]; then
-            cp -f "$ARM64_SRC" artifacts-windows/
           fi
 
       - name: Upload Windows installer (x64)
@@ -127,9 +168,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-windows-installer-x64
-          path: |
-            artifacts-windows/CryptaInstaller-v${{ inputs.version }}-x64.exe
-            artifacts/cryptainstaller-x64/*.exe
+          path: artifacts-windows/CryptaInstaller-v${{ needs.resolve.outputs.version }}-x64.exe
           if-no-files-found: warn
 
       - name: Upload Windows installer (arm64)
@@ -137,9 +176,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cryptad-windows-installer-arm64
-          path: |
-            artifacts-windows/CryptaInstaller-v${{ inputs.version }}-arm64.exe
-            artifacts/cryptainstaller-arm64/*.exe
+          path: artifacts-windows/CryptaInstaller-v${{ needs.resolve.outputs.version }}-arm64.exe
           if-no-files-found: warn
 
       - name: Upload Windows jpackage image (x64)

@@ -96,7 +96,7 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Filter release files (snap/flatpak/deb/rpm/Windows installers)
+      - name: Filter release files (standardized names only)
         id: filter
         shell: bash
         run: |
@@ -105,8 +105,17 @@ jobs:
           echo "::group::All downloaded artifacts"
           find dist -type f -print | sed 's/^/::debug::[artifact] /' || true
           echo "::endgroup::"
-          echo "::group::Selecting release files"
-          mapfile -t FILES < <(find dist -type f \( -iname '*.snap' -o -iname '*.flatpak' -o -iname '*.deb' -o -iname '*.rpm' -o -iname 'CryptaInstaller*.exe' \) -print)
+          echo "::group::Selecting standardized files"
+          # Only include files that match our normalized naming scheme
+          # cryptad-v<version>-<arch>.(snap|flatpak|deb|rpm) and CryptaInstaller-v<version>-(x64|arm64).exe
+          mapfile -t FILES < <(find dist -type f \( \
+            -iname 'cryptad-v*-*.snap' -o \
+            -iname 'cryptad-v*-*.flatpak' -o \
+            -iname 'cryptad-v*-*.deb' -o \
+            -iname 'cryptad-v*-*.rpm' -o \
+            -iname 'CryptaInstaller-v*-x64.exe' -o \
+            -iname 'CryptaInstaller-v*-arm64.exe' \
+          \) -print)
           if [ ${#FILES[@]} -eq 0 ]; then
             echo "::error::No release files found in dist/"
             exit 1
