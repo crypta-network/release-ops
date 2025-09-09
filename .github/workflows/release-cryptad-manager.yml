@@ -157,6 +157,6 @@ jobs:
           tag_name: v${{ steps.resolve.outputs.version }}
           name: Crypta Daemon v${{ steps.resolve.outputs.version }}
           generate_release_notes: true
-          body_path: dist/RELEASE_BODY.md
+          body_path: dist-release/RELEASE_BODY.md
           files: |
             dist-release/**
