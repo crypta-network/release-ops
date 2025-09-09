@@ -153,16 +153,19 @@ jobs:
           echo "::endgroup::"
           echo "count=${#FILES[@]}" >> "$GITHUB_OUTPUT"
 
-          # Ensure macOS DMG uses normalized name even if child workflow didn't
+          # Ensure macOS DMG is included and normalized even if child workflow didn't standardize name
           VERSION='${{ steps.resolve.outputs.version }}'
-          if ls dist-release/*.dmg >/dev/null 2>&1; then
-            TARGET="dist-release/cryptad-v${VERSION}-arm64.dmg"
-            if [ ! -f "$TARGET" ]; then
-              SRC=$(ls -1t dist-release/*.dmg | head -n1)
-              mv "$SRC" "$TARGET"
-              echo "::debug::Renamed $(basename "$SRC") -> $(basename "$TARGET")"
+          TARGET="dist-release/cryptad-v${VERSION}-arm64.dmg"
+          if [ ! -f "$TARGET" ]; then
+            # Try to locate any DMG under the downloaded artifacts
+            SRC=$(find dist -type f -iname '*.dmg' -print | head -n1 || true)
+            if [ -n "$SRC" ]; then
+              cp -f "$SRC" "$TARGET"
+              echo "::debug::Copied $(basename "$SRC") -> $(basename "$TARGET")"
             fi
-            # Remove any extra DMGs that don't match the normalized name
+          fi
+          # Remove any extra DMGs that don't match the normalized name
+          if ls dist-release/*.dmg >/dev/null 2>&1; then
             find dist-release -type f -iname '*.dmg' ! -name "$(basename "$TARGET")" -delete
           fi
 
