@@ -184,5 +184,9 @@ jobs:
           generate_release_notes: true
           body_path: dist-release/RELEASE_BODY.md
           files: |
-            dist-release/**
-
+            dist-release/*.snap
+            dist-release/*.flatpak
+            dist-release/*.deb
+            dist-release/*.rpm
+            dist-release/CryptaInstaller-*.exe
+            dist-release/SHA256SUMS.txt
