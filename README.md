@@ -1,4 +1,4 @@
-# release-ops: CryptaD Packaging
+# release-ops: Cryptad Packaging
 
 [![Snap](https://github.com/crypta-network/release-ops/actions/workflows/build-cryptad-snap.yml/badge.svg)](https://github.com/crypta-network/release-ops/actions/workflows/build-cryptad-snap.yml)
 [![Flatpak](https://github.com/crypta-network/release-ops/actions/workflows/build-cryptad-flatpak.yml/badge.svg)](https://github.com/crypta-network/release-ops/actions/workflows/build-cryptad-flatpak.yml)
