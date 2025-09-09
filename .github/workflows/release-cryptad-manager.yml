@@ -132,12 +132,13 @@ jobs:
           echo "::endgroup::"
           echo "::group::Selecting standardized files"
           # Only include files that match our normalized naming scheme
-          # cryptad-v<version>-<arch>.(snap|flatpak|deb|rpm) and CryptaInstaller-v<version>-(x64|arm64).exe
+          # cryptad-v<version>-<arch>.(snap|flatpak|deb|rpm|dmg) and CryptaInstaller-v<version>-(x64|arm64).exe
           mapfile -t FILES < <(find dist -type f \( \
             -iname 'cryptad-v*-*.snap' -o \
             -iname 'cryptad-v*-*.flatpak' -o \
             -iname 'cryptad-v*-*.deb' -o \
             -iname 'cryptad-v*-*.rpm' -o \
+            -iname 'cryptad-v*-*.dmg' -o \
             -iname 'CryptaInstaller-v*-x64.exe' -o \
             -iname 'CryptaInstaller-v*-arm64.exe' \
           \) -print)
@@ -151,6 +152,19 @@ jobs:
           done
           echo "::endgroup::"
           echo "count=${#FILES[@]}" >> "$GITHUB_OUTPUT"
+
+          # Ensure macOS DMG uses normalized name even if child workflow didn't
+          VERSION='${{ steps.resolve.outputs.version }}'
+          if ls dist-release/*.dmg >/dev/null 2>&1; then
+            TARGET="dist-release/cryptad-v${VERSION}-arm64.dmg"
+            if [ ! -f "$TARGET" ]; then
+              SRC=$(ls -1t dist-release/*.dmg | head -n1)
+              mv "$SRC" "$TARGET"
+              echo "::debug::Renamed $(basename "$SRC") -> $(basename "$TARGET")"
+            fi
+            # Remove any extra DMGs that don't match the normalized name
+            find dist-release -type f -iname '*.dmg' ! -name "$(basename "$TARGET")" -delete
+          fi
 
       - name: Generate SHA256 checksums
         id: checksums
@@ -188,5 +202,6 @@ jobs:
             dist-release/*.flatpak
             dist-release/*.deb
             dist-release/*.rpm
+            dist-release/*.dmg
             dist-release/CryptaInstaller-*.exe
             dist-release/SHA256SUMS.txt
