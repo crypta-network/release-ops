@@ -180,7 +180,7 @@ jobs:
           repository: ${{ env.UPSTREAM_REPO }}
           draft: true
           tag_name: v${{ steps.resolve.outputs.version }}
-          name: Crypta Daemon v${{ steps.resolve.outputs.version }}
+          name: Crypta v${{ steps.resolve.outputs.version }}
           generate_release_notes: true
           body_path: dist-release/RELEASE_BODY.md
           files: |
