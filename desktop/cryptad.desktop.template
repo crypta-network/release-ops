@@ -9,3 +9,5 @@ StartupNotify=false
 Icon=__ICON_NAME__
 Categories=Network;Utility;
 Keywords=crypta;cryptad;p2p;daemon;launcher;
+StartupWMClass=network-crypta-launcher-LauncherKt
+X-GNOME-WMClass=network-crypta-launcher-LauncherKt
