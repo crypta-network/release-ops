@@ -80,7 +80,7 @@ jobs:
         uses: ./.github/actions/render-desktop
         with:
           template_path: desktop/cryptad.desktop.template
-          exec_name: snap run cryptad.cryptad-launcher
+          exec_name: cryptad.cryptad-launcher
           icon_name: ${SNAP}/meta/gui/cryptad.png
           output_path: snap/gui/cryptad.desktop
 

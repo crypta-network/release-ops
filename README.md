@@ -177,7 +177,7 @@ installers, and `SHA256SUMS.txt`.
 
 A shared template `desktop/cryptad.desktop.template` is rendered differently per
 platform via the `render-desktop` composite:
-- Snap → `Exec=snap run cryptad.cryptad-launcher`, `Icon=${SNAP}/meta/gui/cryptad.png`
+- Snap → `Exec=cryptad.cryptad-launcher`, `Icon=${SNAP}/meta/gui/cryptad.png`
 - Flatpak → `Exec=cryptad-launcher`, `Icon=network.crypta.cryptad`
 
 Icons:
