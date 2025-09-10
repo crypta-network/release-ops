@@ -46,6 +46,12 @@ parts:
     override-prime: |
       set -eux
       craftctl default
+      echo "[debug] CRAFT_PROJECT_DIR=$CRAFT_PROJECT_DIR"
+      echo "[debug] CRAFT_PRIME=$CRAFT_PRIME"
+      echo "[debug] CRAFT_TARGET_ARCH=${CRAFT_TARGET_ARCH:-}"
+      echo "[debug] List project snap/gui before copying:"
+      ls -la "$CRAFT_PROJECT_DIR/snap" || true
+      ls -la "$CRAFT_PROJECT_DIR/snap/gui" || true
       # Ensure launchers and native wrappers are world-readable/executable
       if [ -d "$CRAFT_PRIME/bin" ]; then
         # Ensure a terminal-friendly launcher named 'cryptad-launcher' exists
@@ -69,9 +75,22 @@ parts:
       if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.png" ]; then
         cp -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.png" "$CRAFT_PRIME/meta/gui/cryptad.png"
       fi
+      echo "[debug] List prime/meta/gui after copying:"
+      ls -la "$CRAFT_PRIME/meta/gui" || true
+      if [ -f "$CRAFT_PRIME/meta/gui/cryptad.desktop" ]; then
+        echo "[debug] ---- cryptad.desktop (head) ----"; sed -n '1,80p' "$CRAFT_PRIME/meta/gui/cryptad.desktop"; echo "[debug] ---- end ----";
+        echo "[debug] cryptad.desktop Exec="; grep -E '^Exec=' -n "$CRAFT_PRIME/meta/gui/cryptad.desktop" || true;
+      fi
+      if [ -f "$CRAFT_PRIME/meta/gui/cryptad-launcher.desktop" ]; then
+        echo "[debug] ---- cryptad-launcher.desktop (head) ----"; sed -n '1,80p' "$CRAFT_PRIME/meta/gui/cryptad-launcher.desktop"; echo "[debug] ---- end ----";
+        echo "[debug] cryptad-launcher.desktop Exec="; grep -E '^Exec=' -n "$CRAFT_PRIME/meta/gui/cryptad-launcher.desktop" || true;
+      fi
       # Remove any auto-generated desktop file from the GNOME extension to avoid duplicates.
       # We keep only our authored desktop at meta/gui/cryptad.desktop.
       rm -f "$CRAFT_PRIME/meta/gui/cryptad-launcher.desktop" || true
+      echo "[debug] List prime/bin and prime/lib wrapper files:"
+      (ls -la "$CRAFT_PRIME/bin" | sed 's/^/[prime bin] /') || true
+      (ls -la "$CRAFT_PRIME/lib" | sed 's/^/[prime lib] /') || true
       case "${CRAFT_TARGET_ARCH:-}" in
         amd64)
           rm -f "$CRAFT_PRIME"/bin/wrapper-linux-arm-64 "$CRAFT_PRIME"/lib/libwrapper-linux-arm-64.so || true
