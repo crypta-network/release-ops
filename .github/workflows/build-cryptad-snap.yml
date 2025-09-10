@@ -117,7 +117,7 @@ jobs:
           sudo -E snapcraft pack --platform ${{ matrix.arch }} --verbosity=debug
           echo "::endgroup::"
 
-      - name: Debug: list snapcraft work dirs (always)
+      - name: "Debug: list snapcraft work dirs (always)"
         if: always()
         run: |
           echo "::group::List Snapcraft work dirs (parts/, prime/, stage/)"
