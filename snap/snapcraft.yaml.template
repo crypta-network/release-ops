@@ -69,6 +69,9 @@ parts:
       if [ -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.png" ]; then
         cp -f "$CRAFT_PROJECT_DIR/snap/gui/cryptad.png" "$CRAFT_PRIME/meta/gui/cryptad.png"
       fi
+      # Remove any auto-generated desktop file from the GNOME extension to avoid duplicates.
+      # We keep only our authored desktop at meta/gui/cryptad.desktop.
+      rm -f "$CRAFT_PRIME/meta/gui/cryptad-launcher.desktop" || true
       case "${CRAFT_TARGET_ARCH:-}" in
         amd64)
           rm -f "$CRAFT_PRIME"/bin/wrapper-linux-arm-64 "$CRAFT_PRIME"/lib/libwrapper-linux-arm-64.so || true
