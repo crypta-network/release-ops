@@ -117,28 +117,24 @@ jobs:
         with:
           name: cryptainstaller-x64
           path: artifacts/cryptainstaller-x64
-          if-no-files-found: warn
 
       - name: Download installer (arm64)
         uses: actions/download-artifact@v4
         with:
           name: cryptainstaller-arm64
           path: artifacts/cryptainstaller-arm64
-          if-no-files-found: warn
 
       - name: Download jpackage image (x64)
         uses: actions/download-artifact@v4
         with:
           name: cryptad-jpackage-x64
           path: artifacts/cryptad-jpackage-x64
-          if-no-files-found: warn
 
       - name: Download jpackage image (arm64)
         uses: actions/download-artifact@v4
         with:
           name: cryptad-jpackage-arm64
           path: artifacts/cryptad-jpackage-arm64
-          if-no-files-found: warn
 
       - name: List downloaded files
         run: |
