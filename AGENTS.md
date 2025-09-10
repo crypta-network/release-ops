@@ -53,7 +53,7 @@ Key points:
   - Ensures `bin/cryptad`, `bin/cryptad-launcher`, native `wrapper*` are `0755`.
   - Ensures any bundled JRE entrypoint (`*/bin/java`) and `*/lib/jspawnhelper` are `0755`.
   - Removes macOS binaries.
-  - Ensures `meta/gui/cryptad.desktop` and `meta/gui/cryptad.png` are present (copied from `snap/gui/`).
+  - Ensures the desktop file under `snap/gui/cryptad.desktop` is recognized by Snapcraft (it is copied into `meta/gui/` during the build). The icon `snap/gui/cryptad.png` is also included.
   - Trims the opposite Linux wrapper using `CRAFT_TARGET_ARCH`:
       - On amd64, remove `wrapper-linux-arm-64` and its `.so`.
       - On arm64, remove `wrapper-linux-x86-64` and its `.so`.
@@ -64,7 +64,7 @@ Key points:
   - `environment:` sets `CRYPTAD_ALLOW_ROOT=1`, extends `PATH`, and configures `JAVA_TOOL_OPTIONS` (tmp dirs, user.home to `$SNAP_USER_COMMON`).
   - `plugs:` includes `home`, `removable-media`, `network`, `network-bind`.
 - `apps.cryptad-launcher` (GUI entry):
-  - `command: bin/cryptad-launcher`, `extensions: [ gnome ]`, `desktop: meta/gui/cryptad.desktop`.
+  - `command: bin/cryptad-launcher`, `extensions: [ gnome ]`, `desktop: snap/gui/cryptad.desktop`.
   - `environment:` same as `cryptad`.
   - `plugs:` adds GUI integration (`wayland`, `x11`, `desktop`, `desktop-legacy`) plus `home`, `network`, `network-bind`, and optional `removable-media`.
 

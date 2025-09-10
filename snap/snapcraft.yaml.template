@@ -111,7 +111,9 @@ apps:
   cryptad-launcher:
     command: bin/cryptad-launcher
     extensions: [ gnome ]
-    desktop: meta/gui/cryptad.desktop
+    # Point to the source-tree desktop file under snap/gui so Snapcraft
+    # recognizes it and does not auto-generate an extra desktop entry.
+    desktop: snap/gui/cryptad.desktop
     environment:
       CRYPTAD_ALLOW_ROOT: "1"
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
