@@ -82,7 +82,7 @@ jobs:
           template_path: desktop/cryptad.desktop.template
           exec_name: cryptad.cryptad-launcher
           icon_name: ${SNAP}/meta/gui/cryptad.png
-          output_path: snap/gui/cryptad_cryptad-launcher.desktop
+          output_path: snap/gui/cryptad-launcher.desktop
 
       - name: Generate snapcraft.yaml from template
         uses: ./.github/actions/render-manifest
