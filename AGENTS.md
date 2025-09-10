@@ -53,7 +53,7 @@ Key points:
   - Ensures `bin/cryptad`, `bin/cryptad-launcher`, native `wrapper*` are `0755`.
   - Ensures any bundled JRE entrypoint (`*/bin/java`) and `*/lib/jspawnhelper` are `0755`.
   - Removes macOS binaries.
-  - Ensures the desktop file is installed under `meta/gui/cryptad.desktop` (copied from `snap/gui/cryptad.desktop` during `override-prime`). The icon `snap/gui/cryptad.png` is also included.
+  - Do not copy the `.desktop` or icon manually. We ship `snap/gui/cryptad.desktop` and `snap/gui/cryptad.png`, which Snapcraft includes under `meta/gui/` automatically.
   - Trims the opposite Linux wrapper using `CRAFT_TARGET_ARCH`:
       - On amd64, remove `wrapper-linux-arm-64` and its `.so`.
       - On arm64, remove `wrapper-linux-x86-64` and its `.so`.
@@ -64,7 +64,7 @@ Key points:
   - `environment:` sets `CRYPTAD_ALLOW_ROOT=1`, extends `PATH`, and configures `JAVA_TOOL_OPTIONS` (tmp dirs, user.home to `$SNAP_USER_COMMON`).
   - `plugs:` includes `home`, `removable-media`, `network`, `network-bind`.
 - `apps.cryptad-launcher` (GUI entry):
-  - `command: bin/cryptad-launcher`, `extensions: [ gnome ]`, `desktop: meta/gui/cryptad.desktop`.
+  - `command: bin/cryptad-launcher`, `extensions: [ gnome ]` (no `desktop:` key; using a `.desktop` in `snap/gui/` avoids duplication).
   - `environment:` same as `cryptad`.
   - `plugs:` adds GUI integration (`wayland`, `x11`, `desktop`, `desktop-legacy`) plus `home`, `network`, `network-bind`, and optional `removable-media`.
 
@@ -97,9 +97,9 @@ High‑level flow:
   7) Prepare payload:
      - Extract tarball to a work dir; no pruning here (trimming happens in Snapcraft `override-prime`).
      - Repack as `snap/local/cryptad-jlink-v<version>.tar.gz`.
-  8) Prepare desktop assets:
+ 8) Prepare desktop assets:
      - Copy shared icon `desktop/icons/cryptad.png` to `snap/gui/cryptad.png`.
-     - Render `snap/gui/cryptad.desktop` from the shared template with `Exec=snap run cryptad.cryptad-launcher`.
+     - Render `snap/gui/cryptad.desktop` from the shared template with `Exec=cryptad.cryptad-launcher`.
   9) Generate `snap/snapcraft.yaml` from template (substitute `__VERSION__`).
  10) Install Snapcraft (`samuelmeuli/action-snapcraft@v3`).
  11) Build snap natively (no LXD):

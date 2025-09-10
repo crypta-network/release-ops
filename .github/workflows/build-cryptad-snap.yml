@@ -84,14 +84,6 @@ jobs:
           icon_name: ${SNAP}/meta/gui/cryptad.png
           output_path: snap/gui/cryptad.desktop
 
-      - name: List snap dir (pre-pack)
-        run: |
-          echo "::group::List snap tree before snapcraft"
-          find snap -maxdepth 3 -printf '%M %u %g %9s %TY-%Tm-%Td %TH:%TM %p\n' 2>/dev/null | sed 's/^/::debug::[snap-pre] /' || true
-          echo "::debug::Show rendered desktop head"
-          sed -n '1,80p' snap/gui/cryptad.desktop | sed 's/^/::debug::[desktop] /' || true
-          echo "::endgroup::"
-
       - name: Generate snapcraft.yaml from template
         uses: ./.github/actions/render-manifest
         with:
@@ -114,25 +106,7 @@ jobs:
           SNAPCRAFT_BUILD_ENVIRONMENT: host
         run: |
           echo "::group::snapcraft ${{ matrix.arch }} (pack on host)"
-          sudo -E snapcraft pack --platform ${{ matrix.arch }} --verbosity=debug
-          echo "::endgroup::"
-
-      - name: "Debug: list snapcraft work dirs (always)"
-        if: always()
-        run: |
-          echo "::group::List Snapcraft work dirs (parts/, prime/, stage/)"
-          for d in parts prime stage; do
-            if [ -d "$d" ]; then
-              echo "::debug::[$d]"; find "$d" -maxdepth 3 -type f -printf '%M %u %g %9s %TY-%Tm-%Td %TH:%TM %p\n' | sed "s#^#::debug::[$d] #" || true;
-            else
-              echo "::debug::missing $d";
-            fi
-          done
-          if [ -d prime/meta/gui ]; then
-            echo "::debug::[prime/meta/gui] contents:"; ls -la prime/meta/gui | sed 's/^/::debug::[prime-gui] /' || true
-            for f in prime/meta/gui/*.desktop; do
-              [ -e "$f" ] || continue; echo "::debug::[head] $f"; sed -n '1,80p' "$f" | sed 's/^/::debug::[head] /'; done
-          fi
+          sudo -E snapcraft pack --platform ${{ matrix.arch }}
           echo "::endgroup::"
 
       - name: List built snaps

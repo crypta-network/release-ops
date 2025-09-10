@@ -96,7 +96,7 @@ Template: `snap/snapcraft.yaml.template`
   - Ensures `bin/cryptad`, `bin/cryptad-launcher`, wrappers, `*/bin/java`, and
     `*/lib/jspawnhelper` are 0755
   - Removes macOS binaries
-  - Copies `snap/gui/cryptad.desktop` and `snap/gui/cryptad.png` → `meta/gui/`
+  - Ships `snap/gui/cryptad.desktop` and `snap/gui/cryptad.png` (Snapcraft includes them under `meta/gui/` automatically)
   - Trims the opposite Linux wrapper based on `CRAFT_TARGET_ARCH`
 - `apps.cryptad` and `apps.cryptad-launcher` export GUI/non‑GUI entries with
   GNOME extension and appropriate plugs; `CRYPTAD_ALLOW_ROOT=1` is set.
