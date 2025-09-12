@@ -16,7 +16,7 @@ Targets covered:
 - Flatpak (x86_64, aarch64)
 - Linux packages via Gradle `jpackage` (deb/rpm, amd64/arm64)
 - macOS DMG (arm64)
-- Windows installers (x64, arm64)
+- Windows installers (amd64, arm64)
 
 
 ## Overview
@@ -38,7 +38,7 @@ You run these in GitHub Actions for this repo (no local tools required):
 - Flatpak: Actions → “Build cryptad flatpak (x86_64/aarch64)” → Run workflow
 - Linux packages: Actions → “Build cryptad linux packages (deb/rpm)” → Run workflow
 - macOS: Actions → “Build cryptad macOS dmg (arm64)” → Run workflow
-- Windows: Actions → “Build cryptad windows installers (x64/arm64)” → Run workflow
+- Windows: Actions → “Build cryptad windows installers (amd64/arm64)” → Run workflow
 - All + draft release: Actions → “Build all cryptad packages + draft upstream release (v2)”
 
 Inputs for every workflow:
@@ -66,7 +66,7 @@ for Snap/Flatpak are prefixed with `v` per platform conventions.
 - `.github/workflows/build-cryptad-flatpak.yml` — Flatpak (x86_64/aarch64)
 - `.github/workflows/build-cryptad-linux-packages.yml` — Gradle `jpackage` (deb/rpm)
 - `.github/workflows/build-cryptad-macos.yml` — macOS DMG (arm64, tests disabled)
-- `.github/workflows/build-cryptad-windows.yml` — Windows installers (x64/arm64)
+- `.github/workflows/build-cryptad-windows.yml` — Windows installers (amd64/arm64)
 - `.github/workflows/release-cryptad-manager.yml` — Orchestrates all + drafts upstream release
 - `.github/actions/prepare-cryptad/` — Checkout upstream, JDK 21, resolve version, Gradle build, expose tarball path
 - `.github/actions/repack-payload/` — Extract upstream tarball and re‑tar into platform `local/` dir
@@ -152,11 +152,11 @@ Workflow: `.github/workflows/build-cryptad-macos.yml`
 
 Workflow: `.github/workflows/build-cryptad-windows.yml`
 - Resolves the upstream ref/version, then calls the reusable workflow at
-  `crypta-network/wininstaller-innosetup` to produce x64 and arm64 installers.
+  `crypta-network/wininstaller-innosetup` to produce amd64 and arm64 installers.
 - Collects/renames outputs to standardized names and re‑uploads as artifacts.
 
 Artifacts:
-- `CryptaInstaller-v<version>-x64.exe`
+- `CryptaInstaller-v<version>-amd64.exe`
 - `CryptaInstaller-v<version>-arm64.exe`
 
 

@@ -1,4 +1,4 @@
-name: Build cryptad windows installers (x64/arm64)
+name: Build cryptad windows installers (amd64/arm64)
 
 on:
   workflow_dispatch:
@@ -112,11 +112,11 @@ jobs:
     needs: [resolve, windows]
     runs-on: ubuntu-latest
     steps:
-      - name: Download installer (x64)
+      - name: Download installer (amd64)
         uses: actions/download-artifact@v4
         with:
-          name: cryptainstaller-x64
-          path: artifacts/cryptainstaller-x64
+          name: cryptainstaller-amd64
+          path: artifacts/cryptainstaller-amd64
 
       - name: Download installer (arm64)
         uses: actions/download-artifact@v4
@@ -124,11 +124,11 @@ jobs:
           name: cryptainstaller-arm64
           path: artifacts/cryptainstaller-arm64
 
-      - name: Download jpackage image (x64)
+      - name: Download jpackage image (amd64)
         uses: actions/download-artifact@v4
         with:
-          name: cryptad-jpackage-x64
-          path: artifacts/cryptad-jpackage-x64
+          name: cryptad-jpackage-amd64
+          path: artifacts/cryptad-jpackage-amd64
 
       - name: Download jpackage image (arm64)
         uses: actions/download-artifact@v4
@@ -148,23 +148,23 @@ jobs:
           set -euo pipefail
           VERSION='${{ needs.resolve.outputs.version }}'
           mkdir -p artifacts-windows
-          X64_SRC=$(find artifacts/cryptainstaller-x64 -type f -name '*.exe' -print | head -n1 || true)
+          AMD64_SRC=$(find artifacts/cryptainstaller-amd64 -type f -name '*.exe' -print | head -n1 || true)
           ARM64_SRC=$(find artifacts/cryptainstaller-arm64 -type f -name '*.exe' -print | head -n1 || true)
-          if [ -n "$X64_SRC" ] && [ -n "$VERSION" ]; then
-            cp -f "$X64_SRC" "artifacts-windows/CryptaInstaller-v${VERSION}-x64.exe"
-            echo "::debug::Renamed $X64_SRC -> artifacts-windows/CryptaInstaller-v${VERSION}-x64.exe"
+          if [ -n "$AMD64_SRC" ] && [ -n "$VERSION" ]; then
+            cp -f "$AMD64_SRC" "artifacts-windows/CryptaInstaller-v${VERSION}-amd64.exe"
+            echo "::debug::Renamed $AMD64_SRC -> artifacts-windows/CryptaInstaller-v${VERSION}-amd64.exe"
           fi
           if [ -n "$ARM64_SRC" ] && [ -n "$VERSION" ]; then
             cp -f "$ARM64_SRC" "artifacts-windows/CryptaInstaller-v${VERSION}-arm64.exe"
             echo "::debug::Renamed $ARM64_SRC -> artifacts-windows/CryptaInstaller-v${VERSION}-arm64.exe"
           fi
 
-      - name: Upload Windows installer (x64)
+      - name: Upload Windows installer (amd64)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cryptad-windows-installer-x64
-          path: artifacts-windows/CryptaInstaller-v${{ needs.resolve.outputs.version }}-x64.exe
+          name: cryptad-windows-installer-amd64
+          path: artifacts-windows/CryptaInstaller-v${{ needs.resolve.outputs.version }}-amd64.exe
           if-no-files-found: warn
 
       - name: Upload Windows installer (arm64)
@@ -175,12 +175,12 @@ jobs:
           path: artifacts-windows/CryptaInstaller-v${{ needs.resolve.outputs.version }}-arm64.exe
           if-no-files-found: warn
 
-      - name: Upload Windows jpackage image (x64)
+      - name: Upload Windows jpackage image (amd64)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cryptad-windows-jpackage-x64
-          path: artifacts/cryptad-jpackage-x64/**
+          name: cryptad-windows-jpackage-amd64
+          path: artifacts/cryptad-jpackage-amd64/**
           if-no-files-found: warn
 
       - name: Upload Windows jpackage image (arm64)

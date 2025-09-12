@@ -52,7 +52,7 @@ jobs:
       branch: ${{ inputs.branch }}
 
   windows:
-    name: Windows installers (x64/arm64)
+    name: Windows installers (amd64/arm64)
     uses: ./.github/workflows/build-cryptad-windows.yml
     secrets: inherit
     with:
@@ -132,14 +132,14 @@ jobs:
           echo "::endgroup::"
           echo "::group::Selecting standardized files"
           # Only include files that match our normalized naming scheme
-          # cryptad-v<version>-<arch>.(snap|flatpak|deb|rpm|dmg) and CryptaInstaller-v<version>-(x64|arm64).exe
+          # cryptad-v<version>-<arch>.(snap|flatpak|deb|rpm|dmg) and CryptaInstaller-v<version>-(amd64|arm64).exe
           mapfile -t FILES < <(find dist -type f \( \
             -iname 'cryptad-v*-*.snap' -o \
             -iname 'cryptad-v*-*.flatpak' -o \
             -iname 'cryptad-v*-*.deb' -o \
             -iname 'cryptad-v*-*.rpm' -o \
             -iname 'cryptad-v*-*.dmg' -o \
-            -iname 'CryptaInstaller-v*-x64.exe' -o \
+            -iname 'CryptaInstaller-v*-amd64.exe' -o \
             -iname 'CryptaInstaller-v*-arm64.exe' \
           \) -print)
           if [ ${#FILES[@]} -eq 0 ]; then
