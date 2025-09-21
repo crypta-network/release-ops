@@ -71,6 +71,9 @@ jobs:
     needs: [snap, flatpak, linux, macos, windows, jar]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout release-ops repo
+        uses: actions/checkout@v4
+
       - name: Resolve release version
         id: resolve
         shell: bash
