@@ -199,6 +199,7 @@ jobs:
           VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           set -euo pipefail
+          REPO_ROOT=$(pwd)
           echo "::group::Compute SHA256 over dist-release/**"
           cd dist-release
           # Create sorted, portable checksums file
@@ -238,7 +239,7 @@ jobs:
           # - If not, append the section to the end (preserving existing body)
           NEW_SECTION_FILE=RELEASE_BODY_CHECKSUMS.md
           MERGED_FILE=RELEASE_BODY.md
-          python3 .github/scripts/upsert_sha256_section.py \
+          python3 "$REPO_ROOT/.github/scripts/upsert_sha256_section.py" \
             "$EXISTING_BODY_FILE" \
             "$NEW_SECTION_FILE" \
             "$MERGED_FILE"
