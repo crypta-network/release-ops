@@ -221,11 +221,11 @@ jobs:
           EXISTING_BODY=""
           if [ -n "${VERSION:-}" ] && [ -n "${UPSTREAM_REPO:-}" ]; then
             echo "::group::Fetch existing release body (if any)"
-            if gh api repos/${UPSTREAM_REPO}/releases/tags/v${VERSION} -q .body > "$EXISTING_BODY_FILE" 2>/dev/null; then
+            if gh release view "v${VERSION}" --repo "${UPSTREAM_REPO}" --json body --jq '.body' > "$EXISTING_BODY_FILE" 2>/dev/null; then
               echo "::debug::Fetched existing release body for v${VERSION}"
               EXISTING_BODY=$(cat "$EXISTING_BODY_FILE")
             else
-              echo "::notice::No existing release found (or not accessible) for v${VERSION}; will create body from checksums only"
+              echo "::notice::No existing release body retrieved for v${VERSION}; will merge checksums into fresh body"
               : > "$EXISTING_BODY_FILE"
             fi
             echo "::endgroup::"
@@ -239,61 +239,61 @@ jobs:
           NEW_SECTION_FILE=RELEASE_BODY_CHECKSUMS.md
           MERGED_FILE=RELEASE_BODY.md
           python3 <<'PY'
-            import pathlib
-            import re
+import pathlib
+import re
 
-            new_path = pathlib.Path("RELEASE_BODY_CHECKSUMS.md")
-            existing_path = pathlib.Path("EXISTING_BODY.md")
-            merged_path = pathlib.Path("RELEASE_BODY.md")
+new_path = pathlib.Path("RELEASE_BODY_CHECKSUMS.md")
+existing_path = pathlib.Path("EXISTING_BODY.md")
+merged_path = pathlib.Path("RELEASE_BODY.md")
 
-            new_lines = new_path.read_text().splitlines()
-            existing_text = existing_path.read_text() if existing_path.exists() else ""
-            lines = existing_text.splitlines()
+new_lines = new_path.read_text().splitlines()
+existing_text = existing_path.read_text() if existing_path.exists() else ""
+lines = existing_text.splitlines()
 
-            header_re = re.compile(r'^##\s+SHA256\s+Checksums\s*$')
+header_re = re.compile(r'^##\s+SHA256\s+Checksums\s*$')
 
-            result = []
-            i = 0
-            found = False
+result = []
+i = 0
+found = False
 
+while i < len(lines):
+    line = lines[i]
+    if not found and header_re.match(line):
+        print("::debug::Existing body contains SHA256 section; updating it")
+        result.extend(new_lines)
+        i += 1
+        while i < len(lines) and lines[i].strip() == "":
+            i += 1
+        if i < len(lines) and lines[i].strip().startswith("```"):
+            i += 1
             while i < len(lines):
-                line = lines[i]
-                if not found and header_re.match(line):
-                    print("::debug::Existing body contains SHA256 section; updating it")
-                    result.extend(new_lines)
+                if lines[i].strip().startswith("```"):
                     i += 1
-                    while i < len(lines) and lines[i].strip() == "":
-                        i += 1
-                    if i < len(lines) and lines[i].strip().startswith("```"):
-                        i += 1
-                        while i < len(lines):
-                            if lines[i].strip().startswith("```"):
-                                i += 1
-                                break
-                            i += 1
-                    else:
-                        while i < len(lines) and lines[i].strip() != "" and not lines[i].startswith("##"):
-                            i += 1
-                    while i < len(lines) and lines[i].strip() == "":
-                        i += 1
-                    if i < len(lines):
-                        result.append("")
-                    found = True
-                    continue
-                result.append(line)
+                    break
                 i += 1
+        else:
+            while i < len(lines) and lines[i].strip() != "" and not lines[i].startswith("##"):
+                i += 1
+        while i < len(lines) and lines[i].strip() == "":
+            i += 1
+        if i < len(lines):
+            result.append("")
+        found = True
+        continue
+    result.append(line)
+    i += 1
 
-            if not found:
-                print("::debug::No SHA256 section; appending new section")
-                if result and result[-1].strip() != "":
-                    result.append("")
-                result.extend(new_lines)
+if not found:
+    print("::debug::No SHA256 section; appending new section")
+    if result and result[-1].strip() != "":
+        result.append("")
+    result.extend(new_lines)
 
-            while result and result[-1] == "":
-                result.pop()
+while result and result[-1] == "":
+    result.pop()
 
-            merged_path.write_text("\n".join(result) + "\n")
-          PY
+merged_path.write_text("\n".join(result) + "\n")
+PY
 
       - name: Create draft release in upstream repo
         uses: softprops/action-gh-release@v2
