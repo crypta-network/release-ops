@@ -58,10 +58,17 @@ jobs:
     with:
       version: ${{ inputs.version }}
       branch: ${{ inputs.branch }}
+  jar:
+    name: JAR
+    uses: ./.github/workflows/build-cryptad-jar.yml
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
+      branch: ${{ inputs.branch }}
 
   release:
     name: Draft upstream release
-    needs: [snap, flatpak, linux, macos, windows]
+    needs: [snap, flatpak, linux, macos, windows, jar]
     runs-on: ubuntu-latest
     steps:
       - name: Resolve release version
@@ -74,6 +81,7 @@ jobs:
           LINUX_VERSION: ${{ needs.linux.outputs.version }}
           MACOS_VERSION: ${{ needs.macos.outputs.version }}
           WINDOWS_VERSION: ${{ needs.windows.outputs.version }}
+          JAR_VERSION: ${{ needs.jar.outputs.version }}
         run: |
           set -euo pipefail
           pick_first() {
@@ -82,7 +90,7 @@ jobs:
             done
             return 1
           }
-          VERSION=$(pick_first "$INPUT_VERSION" "$SNAP_VERSION" "$FLATPAK_VERSION" "$LINUX_VERSION" "$MACOS_VERSION" "$WINDOWS_VERSION" || true)
+          VERSION=$(pick_first "$INPUT_VERSION" "$SNAP_VERSION" "$FLATPAK_VERSION" "$LINUX_VERSION" "$MACOS_VERSION" "$WINDOWS_VERSION" "$JAR_VERSION" || true)
           if [ -z "$VERSION" ]; then
             echo "::error::Could not resolve version from inputs or child workflows"
             exit 1
@@ -140,7 +148,8 @@ jobs:
             -iname 'cryptad-v*-*.rpm' -o \
             -iname 'cryptad-v*-*.dmg' -o \
             -iname 'CryptaInstaller-v*-amd64.exe' -o \
-            -iname 'CryptaInstaller-v*-arm64.exe' \
+            -iname 'CryptaInstaller-v*-arm64.exe' -o \
+            -iname 'cryptad.jar' \
           \) -print)
           if [ ${#FILES[@]} -eq 0 ]; then
             echo "::error::No release files found in dist/"
@@ -169,9 +178,25 @@ jobs:
             find dist-release -type f -iname '*.dmg' ! -name "$(basename "$TARGET")" -delete
           fi
 
-      - name: Generate SHA256 checksums
+          # Ensure the JAR has the canonical filename
+          if ls dist-release/cryptad.jar >/dev/null 2>&1; then
+            echo "::debug::JAR present: cryptad.jar"
+          else
+            # If a jar exists with any other name under dist, force-copy it as cryptad.jar
+            JAR_SRC=$(find dist -type f -iname '*.jar' -print | head -n1 || true)
+            if [ -n "$JAR_SRC" ]; then
+              cp -f "$JAR_SRC" dist-release/cryptad.jar
+              echo "::debug::Copied $(basename "$JAR_SRC") -> cryptad.jar"
+            fi
+          fi
+
+      - name: Generate SHA256 checksums (and upsert body section)
         id: checksums
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_REPO_TOKEN }}
+          UPSTREAM_REPO: ${{ env.UPSTREAM_REPO }}
+          VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           set -euo pipefail
           echo "::group::Compute SHA256 over dist-release/**"
@@ -180,14 +205,95 @@ jobs:
           find . -type f -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS.txt
           echo "::debug::$(wc -l < SHA256SUMS.txt) checksum entries"
           echo "::endgroup::"
-          # Prepare a markdown body including the checksums
+
+          # Compose the checksums section as a standalone fragment
           {
             echo "## SHA256 Checksums"
             echo
             echo '```text'
             cat SHA256SUMS.txt
             echo '```'
-          } > RELEASE_BODY.md
+          } > RELEASE_BODY_CHECKSUMS.md
+
+          # Try to fetch existing release body for tag v$VERSION (if it exists)
+          # We deliberately do not fail if it can't be fetched.
+          EXISTING_BODY_FILE=EXISTING_BODY.md
+          EXISTING_BODY=""
+          if [ -n "${VERSION:-}" ] && [ -n "${UPSTREAM_REPO:-}" ]; then
+            echo "::group::Fetch existing release body (if any)"
+            if gh api repos/${UPSTREAM_REPO}/releases/tags/v${VERSION} -q .body > "$EXISTING_BODY_FILE" 2>/dev/null; then
+              echo "::debug::Fetched existing release body for v${VERSION}"
+              EXISTING_BODY=$(cat "$EXISTING_BODY_FILE")
+            else
+              echo "::notice::No existing release found (or not accessible) for v${VERSION}; will create body from checksums only"
+              : > "$EXISTING_BODY_FILE"
+            fi
+            echo "::endgroup::"
+          else
+            : > "$EXISTING_BODY_FILE"
+          fi
+
+          # Upsert/replace the "## SHA256 Checksums" section within the existing body
+          # - If section exists, replace its content with our new fragment
+          # - If not, append the section to the end (preserving existing body)
+          NEW_SECTION_FILE=RELEASE_BODY_CHECKSUMS.md
+          MERGED_FILE=RELEASE_BODY.md
+          python3 <<'PY'
+            import pathlib
+            import re
+
+            new_path = pathlib.Path("RELEASE_BODY_CHECKSUMS.md")
+            existing_path = pathlib.Path("EXISTING_BODY.md")
+            merged_path = pathlib.Path("RELEASE_BODY.md")
+
+            new_lines = new_path.read_text().splitlines()
+            existing_text = existing_path.read_text() if existing_path.exists() else ""
+            lines = existing_text.splitlines()
+
+            header_re = re.compile(r'^##\s+SHA256\s+Checksums\s*$')
+
+            result = []
+            i = 0
+            found = False
+
+            while i < len(lines):
+                line = lines[i]
+                if not found and header_re.match(line):
+                    print("::debug::Existing body contains SHA256 section; updating it")
+                    result.extend(new_lines)
+                    i += 1
+                    while i < len(lines) and lines[i].strip() == "":
+                        i += 1
+                    if i < len(lines) and lines[i].strip().startswith("```"):
+                        i += 1
+                        while i < len(lines):
+                            if lines[i].strip().startswith("```"):
+                                i += 1
+                                break
+                            i += 1
+                    else:
+                        while i < len(lines) and lines[i].strip() != "" and not lines[i].startswith("##"):
+                            i += 1
+                    while i < len(lines) and lines[i].strip() == "":
+                        i += 1
+                    if i < len(lines):
+                        result.append("")
+                    found = True
+                    continue
+                result.append(line)
+                i += 1
+
+            if not found:
+                print("::debug::No SHA256 section; appending new section")
+                if result and result[-1].strip() != "":
+                    result.append("")
+                result.extend(new_lines)
+
+            while result and result[-1] == "":
+                result.pop()
+
+            merged_path.write_text("\n".join(result) + "\n")
+          PY
 
       - name: Create draft release in upstream repo
         uses: softprops/action-gh-release@v2
@@ -207,4 +313,5 @@ jobs:
             dist-release/*.rpm
             dist-release/*.dmg
             dist-release/CryptaInstaller-*.exe
+            dist-release/cryptad.jar
             dist-release/SHA256SUMS.txt

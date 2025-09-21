@@ -16,6 +16,7 @@ It now covers both Snap (amd64, arm64) and Flatpak (x86_64, aarch64).
 
 - `.github/workflows/build-cryptad-snap.yml` — GitHub Actions pipeline (Snap).
 - `.github/workflows/build-cryptad-flatpak.yml` — GitHub Actions pipeline (Flatpak).
+- `.github/workflows/build-cryptad-jar.yml` — GitHub Actions pipeline (plain JAR).
 - `.github/actions/prepare-cryptad/` — composite for upstream checkout + version resolve + Gradle dist.
 - `.github/actions/repack-payload/` — composite to extract upstream tarball and re‑tar into target `local/` dir.
 - `.github/actions/render-desktop/` — composite to render shared desktop template (Exec/Icon substitutions).
@@ -194,6 +195,7 @@ High‑level flow:
 - Artifacts:
   - Snap: two separate artifacts per run (`cryptad-snap-<version>-amd64` and `...-arm64`).
   - Flatpak: two separate artifacts per run (`cryptad-flatpak-<version>-x86_64` and `...-aarch64`).
+  - JAR: one file named `cryptad.jar` (no version in filename) included in the drafted upstream release and checksums.
 - Upstream dist expectations:
   - Tarball contains `bin/cryptad`, `bin/wrapper-*`, `lib/*`, `conf/wrapper.conf`.
   - The upstream launcher rejects root unless `CRYPTAD_ALLOW_ROOT` is set; the snap sets this env var.
@@ -201,7 +203,7 @@ High‑level flow:
 
 ### Build Manager + Draft Release
 
-- A manager workflow `.github/workflows/release-cryptad-manager.yml` calls all `build-cryptad-*` workflows (snap, flatpak, linux-packages, macos, windows) and then drafts a release in the upstream repo `crypta-network/cryptad`.
+- A manager workflow `.github/workflows/release-cryptad-manager.yml` calls all `build-cryptad-*` workflows (snap, flatpak, linux-packages, macos, windows, jar) and then drafts a release in the upstream repo `crypta-network/cryptad`.
 - All `build-cryptad-*` workflows remain manually callable (`workflow_dispatch`) and are also reusable (`workflow_call`) so the manager can invoke them.
 - The manager accepts the same `version`/`branch` inputs and resolves a final `version` from the child workflows if `version` is empty.
 - To publish the draft release in the upstream repository, add a repository secret `UPSTREAM_REPO_TOKEN` with `repo` scope (PAT) that has permission to create releases in `crypta-network/cryptad`.

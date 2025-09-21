@@ -1,0 +1,111 @@
+name: Build cryptad jar
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3). If set, checks out release/<version>"
+        required: false
+        default: ""
+      branch:
+        description: "Branch or tag to build when version is empty"
+        required: false
+        default: "main"
+  workflow_call:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3). If set, checks out release/<version>"
+        required: false
+        type: string
+        default: ""
+      branch:
+        description: "Branch or tag to build when version is empty"
+        required: false
+        type: string
+        default: "main"
+    outputs:
+      version:
+        description: "Resolved version used for this build"
+        value: ${{ jobs.build.outputs.version }}
+
+jobs:
+  build:
+    name: Build JAR
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+    steps:
+      - name: Checkout release-ops repo
+        uses: actions/checkout@v4
+
+      - name: Prepare upstream (version + baseline build)
+        id: prepare
+        uses: ./.github/actions/prepare-cryptad
+        with:
+          version: ${{ inputs.version }}
+          branch: ${{ inputs.branch }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Locate built JAR
+        id: locate
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          echo "::group::Scan for candidate JARs"
+          # Collect all non-sources/non-javadoc/non-test jars
+          mapfile -t JARS < <(find . -type f -path '*/build/libs/*.jar' \
+            ! -iname '*sources*.jar' ! -iname '*javadoc*.jar' ! -iname '*tests*.jar' ! -iname '*test*.jar' \
+            -print | sort)
+          if [ ${#JARS[@]} -eq 0 ]; then
+            echo "::error::No JARs found under */build/libs after Gradle build"
+            find . -maxdepth 4 -type f -name '*.jar' -print || true
+            exit 1
+          fi
+          printf '%s\n' "${JARS[@]}" | sed 's/^/::debug::[jar] /'
+          echo "::endgroup::"
+
+          # Prefer shaded/uber jars if present; otherwise pick the largest jar
+          pick_preferred() {
+            local best=""; local best_size=0
+            for j in "$@"; do
+              base=$(basename "$j")
+              if echo "$base" | grep -Ei '(shadow|all|uber).jar$' >/dev/null 2>&1; then
+                echo "$j"; return 0
+              fi
+            done
+            for j in "$@"; do
+              sz=$(stat -f %z "$j" 2>/dev/null || stat -c %s "$j" 2>/dev/null || echo 0)
+              if [ "$sz" -gt "$best_size" ]; then best="$j"; best_size="$sz"; fi
+            done
+            echo "$best"
+          }
+
+          CAND=$(pick_preferred "${JARS[@]}")
+          if [ -z "$CAND" ]; then
+            echo "::error::Failed to select a JAR candidate"
+            exit 1
+          fi
+          echo "::notice::Selected JAR: $CAND"
+          echo "jar_path=$CAND" >> "$GITHUB_OUTPUT"
+
+      - name: Normalize filename to cryptad.jar
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts-jar
+          CAND='${{ steps.locate.outputs.jar_path }}'
+          cp -f "$CAND" ../artifacts-jar/cryptad.jar
+          echo "::debug::Copied $(basename "$CAND") -> artifacts-jar/cryptad.jar"
+          (du -h ../artifacts-jar/cryptad.jar | sed 's/^/::debug::[size] /') || true
+          (sha256sum ../artifacts-jar/cryptad.jar | sed 's/^/::debug::[sha256] /') || true
+
+      - name: Upload cryptad.jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptad-jar-${{ steps.prepare.outputs.version }}
+          path: artifacts-jar/cryptad.jar
+          if-no-files-found: error
+
