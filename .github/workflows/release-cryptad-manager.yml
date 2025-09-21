@@ -238,62 +238,10 @@ jobs:
           # - If not, append the section to the end (preserving existing body)
           NEW_SECTION_FILE=RELEASE_BODY_CHECKSUMS.md
           MERGED_FILE=RELEASE_BODY.md
-          python3 <<'PY'
-import pathlib
-import re
-
-new_path = pathlib.Path("RELEASE_BODY_CHECKSUMS.md")
-existing_path = pathlib.Path("EXISTING_BODY.md")
-merged_path = pathlib.Path("RELEASE_BODY.md")
-
-new_lines = new_path.read_text().splitlines()
-existing_text = existing_path.read_text() if existing_path.exists() else ""
-lines = existing_text.splitlines()
-
-header_re = re.compile(r'^##\s+SHA256\s+Checksums\s*$')
-
-result = []
-i = 0
-found = False
-
-while i < len(lines):
-    line = lines[i]
-    if not found and header_re.match(line):
-        print("::debug::Existing body contains SHA256 section; updating it")
-        result.extend(new_lines)
-        i += 1
-        while i < len(lines) and lines[i].strip() == "":
-            i += 1
-        if i < len(lines) and lines[i].strip().startswith("```"):
-            i += 1
-            while i < len(lines):
-                if lines[i].strip().startswith("```"):
-                    i += 1
-                    break
-                i += 1
-        else:
-            while i < len(lines) and lines[i].strip() != "" and not lines[i].startswith("##"):
-                i += 1
-        while i < len(lines) and lines[i].strip() == "":
-            i += 1
-        if i < len(lines):
-            result.append("")
-        found = True
-        continue
-    result.append(line)
-    i += 1
-
-if not found:
-    print("::debug::No SHA256 section; appending new section")
-    if result and result[-1].strip() != "":
-        result.append("")
-    result.extend(new_lines)
-
-while result and result[-1] == "":
-    result.pop()
-
-merged_path.write_text("\n".join(result) + "\n")
-PY
+          python3 .github/scripts/upsert_sha256_section.py \
+            "$EXISTING_BODY_FILE" \
+            "$NEW_SECTION_FILE" \
+            "$MERGED_FILE"
 
       - name: Create draft release in upstream repo
         uses: softprops/action-gh-release@v2

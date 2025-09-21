@@ -17,6 +17,7 @@ It now covers both Snap (amd64, arm64) and Flatpak (x86_64, aarch64).
 - `.github/workflows/build-cryptad-snap.yml` — GitHub Actions pipeline (Snap).
 - `.github/workflows/build-cryptad-flatpak.yml` — GitHub Actions pipeline (Flatpak).
 - `.github/workflows/build-cryptad-jar.yml` — GitHub Actions pipeline (plain JAR).
+- `.github/scripts/upsert_sha256_section.py` — helper used by the release manager to merge checksum sections.
 - `.github/actions/prepare-cryptad/` — composite for upstream checkout + version resolve + Gradle dist.
 - `.github/actions/repack-payload/` — composite to extract upstream tarball and re‑tar into target `local/` dir.
 - `.github/actions/render-desktop/` — composite to render shared desktop template (Exec/Icon substitutions).
