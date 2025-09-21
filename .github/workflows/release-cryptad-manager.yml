@@ -202,7 +202,8 @@ jobs:
           VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           set -euo pipefail
-          REPO_ROOT=$(pwd)
+          # Use GitHub-provided workspace path; requires actions/checkout earlier in this job
+          REPO_ROOT="${GITHUB_WORKSPACE}"
           echo "::group::Compute SHA256 over dist-release/**"
           cd dist-release
           # Create sorted, portable checksums file
