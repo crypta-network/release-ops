@@ -54,8 +54,9 @@ jobs:
         run: |
           set -euo pipefail
           echo "::group::Scan for candidate JARs"
-          # Collect all non-sources/non-javadoc/non-test jars
+          # Collect relevant jars: exclude sources/javadoc/tests and internal build-logic jars
           mapfile -t JARS < <(find . -type f -path '*/build/libs/*.jar' \
+            ! -path '*/build-logic/*' \
             ! -iname '*sources*.jar' ! -iname '*javadoc*.jar' ! -iname '*tests*.jar' ! -iname '*test*.jar' \
             -print | sort)
           if [ ${#JARS[@]} -eq 0 ]; then
@@ -76,8 +77,14 @@ jobs:
               fi
             done
             for j in "$@"; do
-              sz=$(stat -f %z "$j" 2>/dev/null || stat -c %s "$j" 2>/dev/null || echo 0)
-              if [ "$sz" -gt "$best_size" ]; then best="$j"; best_size="$sz"; fi
+              sz=$(wc -c <"$j" 2>/dev/null | tr -d '[:space:]')
+              if ! [[ "$sz" =~ ^[0-9]+$ ]]; then
+                sz=0
+              fi
+              if [ "$sz" -gt "$best_size" ]; then
+                best="$j"
+                best_size="$sz"
+              fi
             done
             echo "$best"
           }
@@ -108,4 +115,3 @@ jobs:
           name: cryptad-jar-${{ steps.prepare.outputs.version }}
           path: artifacts-jar/cryptad.jar
           if-no-files-found: error
-
