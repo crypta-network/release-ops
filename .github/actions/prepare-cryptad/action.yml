@@ -58,6 +58,7 @@ runs:
       with:
         distribution: temurin
         java-version: "25"
+        check-latest: true
         cache: gradle
 
     - name: Determine version via gradle printVersion or fallback

@@ -68,7 +68,7 @@ for Snap/Flatpak are prefixed with `v` per platform conventions.
 - `.github/workflows/build-cryptad-macos.yml` — macOS DMG (arm64, tests disabled)
 - `.github/workflows/build-cryptad-windows.yml` — Windows installers (amd64/arm64)
 - `.github/workflows/release-cryptad-manager.yml` — Orchestrates all + drafts upstream release
-- `.github/actions/prepare-cryptad/` — Checkout upstream, JDK 21, resolve version, Gradle build, expose tarball path
+- `.github/actions/prepare-cryptad/` — Checkout upstream, JDK 25, resolve version, Gradle build, expose tarball path
 - `.github/actions/repack-payload/` — Extract upstream tarball and re‑tar into platform `local/` dir
 - `.github/actions/render-desktop/` — Render shared desktop template (`Exec`/`Icon` substitution)
 - `.github/actions/render-manifest/` — Generic token substitution for templates

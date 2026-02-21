@@ -87,7 +87,7 @@ High‑level flow:
   1) Checkout this repository
   2) Decide upstream ref (`release/<version>` or `branch`)
   3) Checkout upstream `crypta-network/cryptad` to `./upstream`
-  4) Java setup (Temurin 21) for Gradle
+  4) Java setup (Temurin 25) for Gradle
   5) Resolve version (in order):
      - Use `inputs.version` if provided
      - If Gradle task `printVersion` exists: use its output
@@ -157,7 +157,7 @@ High‑level flow:
 - Steps per job:
   1) Checkout this repo and select upstream ref.
   2) Checkout upstream `crypta-network/cryptad` to `./upstream`.
-  3) Java setup (Temurin 21), resolve version (same heuristics as Snap).
+  3) Java setup (Temurin 25), resolve version (same heuristics as Snap).
   4) Build upstream dist; write absolute tarball path to `.tarball-path`.
   5) Repack payload to `flatpak/local/cryptad-jlink-v<version>.tar.gz`.
   6) Render `flatpak/cryptad.yaml` and `flatpak/network.crypta.cryptad.metainfo.xml` from templates.
