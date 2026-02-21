@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout release-ops repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Prepare upstream (version + baseline build)
         id: prepare
@@ -203,7 +203,7 @@ jobs:
 
       - name: Upload deb package(s)
         if: ${{ steps.locate.outputs.deb_paths != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cryptad-deb-${{ steps.prepare.outputs.version }}-${{ matrix.arch }}
           path: artifacts-std/*.deb
@@ -211,7 +211,7 @@ jobs:
 
       - name: Upload rpm package(s)
         if: ${{ steps.locate.outputs.rpm_paths != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cryptad-rpm-${{ steps.prepare.outputs.version }}-${{ matrix.arch }}
           path: artifacts-std/*.rpm

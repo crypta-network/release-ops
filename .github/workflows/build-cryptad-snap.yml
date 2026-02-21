@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout release-ops repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Prepare upstream (version + dist tarball)
         id: prepare
@@ -99,7 +99,7 @@ jobs:
           echo "::debug::Kernel: $(uname -a)"
 
       - name: Install Snapcraft
-        uses: samuelmeuli/action-snapcraft@v3
+        uses: samuelmeuli/action-snapcraft@fceeb3c308e76f3487e72ef608618de625fb7fe8 # v3.0.1
 
       - name: Build snap (native arch, no LXD)
         env:
@@ -133,7 +133,7 @@ jobs:
 
       - name: Upload amd64 snap
         if: matrix.arch == 'amd64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cryptad-snap-${{ steps.prepare.outputs.version }}-amd64
           path: artifacts-snap/cryptad-v${{ steps.prepare.outputs.version }}-amd64.snap
@@ -141,7 +141,7 @@ jobs:
 
       - name: Upload arm64 snap
         if: matrix.arch == 'arm64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cryptad-snap-${{ steps.prepare.outputs.version }}-arm64
           path: artifacts-snap/cryptad-v${{ steps.prepare.outputs.version }}-arm64.snap

@@ -47,7 +47,7 @@ jobs:
           fi
 
       - name: Checkout upstream for version detection
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: crypta-network/cryptad
           ref: ${{ steps.set.outputs.ref }}
@@ -55,7 +55,7 @@ jobs:
 
       - name: Set up JDK 21 (temurin) for Gradle introspection
         if: ${{ !inputs.version }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: temurin
           java-version: '21'
@@ -98,7 +98,7 @@ jobs:
   windows:
     name: Upstream Windows build (reusable)
     needs: [resolve]
-    uses: crypta-network/wininstaller-innosetup/.github/workflows/build.yml@master
+    uses: crypta-network/wininstaller-innosetup/.github/workflows/build.yml@5ab98b0918b1f6007b2f1f1ef0eb633e86e591d8 # master
     secrets: inherit
     with:
       # Map our version/branch inputs into the expected cryptad-git-ref
@@ -113,25 +113,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download installer (amd64)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: cryptainstaller-amd64
           path: artifacts/cryptainstaller-amd64
 
       - name: Download installer (arm64)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: cryptainstaller-arm64
           path: artifacts/cryptainstaller-arm64
 
       - name: Download jpackage image (amd64)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: cryptad-jpackage-amd64
           path: artifacts/cryptad-jpackage-amd64
 
       - name: Download jpackage image (arm64)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: cryptad-jpackage-arm64
           path: artifacts/cryptad-jpackage-arm64
@@ -161,7 +161,7 @@ jobs:
 
       - name: Upload Windows installer (amd64)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cryptad-windows-installer-amd64
           path: artifacts-windows/CryptaInstaller-v${{ needs.resolve.outputs.version }}-amd64.exe
@@ -169,7 +169,7 @@ jobs:
 
       - name: Upload Windows installer (arm64)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cryptad-windows-installer-arm64
           path: artifacts-windows/CryptaInstaller-v${{ needs.resolve.outputs.version }}-arm64.exe
@@ -177,7 +177,7 @@ jobs:
 
       - name: Upload Windows jpackage image (amd64)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cryptad-windows-jpackage-amd64
           path: artifacts/cryptad-jpackage-amd64/**
@@ -185,7 +185,7 @@ jobs:
 
       - name: Upload Windows jpackage image (arm64)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cryptad-windows-jpackage-arm64
           path: artifacts/cryptad-jpackage-arm64/**
