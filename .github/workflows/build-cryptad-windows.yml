@@ -99,7 +99,7 @@ jobs:
   windows:
     name: Upstream Windows build (reusable)
     needs: [resolve]
-    uses: crypta-network/wininstaller-innosetup/.github/workflows/build.yml@5ab98b0918b1f6007b2f1f1ef0eb633e86e591d8 # master
+    uses: crypta-network/wininstaller-innosetup/.github/workflows/build.yml@5883b554663655cda8e82c3abc4f4946dd8efc1c # master
     secrets: inherit
     with:
       # Map our version/branch inputs into the expected cryptad-git-ref
