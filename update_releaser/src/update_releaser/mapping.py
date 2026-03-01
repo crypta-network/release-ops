@@ -7,13 +7,14 @@ from typing import Iterable
 from update_releaser.github import ReleaseAsset
 
 SUPPORTED_ARCHES = ("amd64", "arm64")
+TAR_GZ_EXTENSION = "tar.gz"
 SUPPORTED_EXTENSIONS = (
     "deb",
     "rpm",
     "dmg",
     "exe",
     "msi",
-    "tar.gz",
+    TAR_GZ_EXTENSION,
     "zip",
     "pkg",
     "flatpak",
@@ -50,10 +51,11 @@ def is_ignored_asset(filename: str) -> bool:
 
 def detect_extension(filename: str) -> str | None:
     lowered = filename.lower()
-    if lowered.endswith(".tar.gz"):
-        return "tar.gz"
+    tar_gz_suffix = f".{TAR_GZ_EXTENSION}"
+    if lowered.endswith(tar_gz_suffix):
+        return TAR_GZ_EXTENSION
     for extension in SUPPORTED_EXTENSIONS:
-        if extension == "tar.gz":
+        if extension == TAR_GZ_EXTENSION:
             continue
         if lowered.endswith(f".{extension}"):
             return extension
@@ -74,7 +76,12 @@ def map_asset_filename(filename: str) -> tuple[str, str, str] | None:
     if extension is None:
         return None
 
-    stem = filename[: -len(".tar.gz")] if extension == "tar.gz" else filename[: -len(f".{extension}")]
+    tar_gz_suffix = f".{TAR_GZ_EXTENSION}"
+    stem = (
+        filename[: -len(tar_gz_suffix)]
+        if extension == TAR_GZ_EXTENSION
+        else filename[: -len(f".{extension}")]
+    )
     arch_match = _ARCH_RE.search(stem.lower())
     if not arch_match:
         raise ValueError(

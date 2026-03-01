@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 from typing import Any
 
@@ -85,7 +84,6 @@ def get_release_by_tag(owner: str, repo: str, tag: str, token: str | None) -> Re
 
 
 def get_release_by_tag_gh(owner: str, repo: str, tag: str, token: str | None) -> Release:
-    _require_gh_available()
     repo_name = f"{owner}/{repo}"
     payload_text = _run_gh_command(
         [
@@ -154,7 +152,6 @@ def download_asset_with_gh(
     dest: Path,
     token: str | None,
 ) -> None:
-    _require_gh_available()
     dest.parent.mkdir(parents=True, exist_ok=True)
     temp_path = dest.with_name(dest.name + ".tmp")
     _run_gh_command(
@@ -206,26 +203,24 @@ def _asset_id_from_gh(asset: dict[str, Any], *, fallback: int) -> int:
     return fallback
 
 
-def _require_gh_available() -> None:
-    if shutil.which("gh") is None:
-        raise GitHubError(
-            "`gh` CLI is not available in PATH. Install GitHub CLI or use --github-source api."
-        )
-
-
 def _run_gh_command(args: list[str], *, token: str | None) -> str:
     env = dict(os.environ)
     if token:
         env["GH_TOKEN"] = token
         env["GITHUB_TOKEN"] = token
-    result = subprocess.run(
-        ["gh", *args],
-        check=False,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["gh", *args],
+            check=False,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except FileNotFoundError as err:
+        raise GitHubError(
+            "`gh` CLI is not available in PATH. Install GitHub CLI or use --github-source api."
+        ) from err
     if result.returncode != 0:
         stderr = result.stderr.strip() or "unknown gh error"
         raise GitHubError(f"`gh {' '.join(args)}` failed: {stderr}")

@@ -519,23 +519,20 @@ class ReleaseWorkflow:
             release = get_release_by_tag_gh(owner, repo, tag, token)
             return release, "gh"
 
-        api_error: GitHubError | None = None
         try:
             release = get_release_by_tag(owner, repo, tag, token)
             return release, "api"
-        except GitHubError as exc:
-            api_error = exc
-            LOGGER.warning("GitHub API lookup failed; attempting `gh` fallback: %s", exc)
-
-        try:
-            release = get_release_by_tag_gh(owner, repo, tag, token)
-            return release, "gh"
-        except GitHubError as gh_error:
-            message = (
-                "Failed to fetch release via both GitHub API and `gh` CLI. "
-                f"API error: {api_error}. gh error: {gh_error}."
-            )
-            raise WorkflowError(message) from gh_error
+        except GitHubError as api_error:
+            LOGGER.warning("GitHub API lookup failed; attempting `gh` fallback: %s", api_error)
+            try:
+                release = get_release_by_tag_gh(owner, repo, tag, token)
+                return release, "gh"
+            except GitHubError as gh_error:
+                message = (
+                    "Failed to fetch release via both GitHub API and `gh` CLI. "
+                    f"API error: {api_error}. gh error: {gh_error}."
+                )
+                raise WorkflowError(message) from gh_error
 
     def _core_info_path(self) -> Path | None:
         core_info_state = self.state.get("core_info")

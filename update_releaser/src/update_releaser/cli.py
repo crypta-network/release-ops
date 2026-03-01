@@ -7,14 +7,14 @@ import os
 from pathlib import Path
 from typing import Sequence
 
-from update_releaser.fcp_client import FCPClient, FCPClientError
+from update_releaser.fcp_client import FCPClient
 from update_releaser.publish import (
     PUBLISH_TO_PRODUCTION,
     PUBLISH_TO_STAGING,
     publish_revocation,
 )
 from update_releaser.release_url import parse_release_page_url
-from update_releaser.workflow import PutOptions, ReleaseWorkflow, WorkflowError
+from update_releaser.workflow import PutOptions, ReleaseWorkflow
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,13 +26,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         return args.handler(args)
-    except (
-        ValueError,
-        FileNotFoundError,
-        RuntimeError,
-        FCPClientError,
-        WorkflowError,
-    ) as exc:
+    except (ValueError, FileNotFoundError, RuntimeError) as exc:
         LOGGER.error("%s", exc)
         return 1
     except KeyboardInterrupt:
@@ -408,6 +402,9 @@ def _handle_revoke(args: argparse.Namespace) -> int:
             persistence=put_options.persistence,
             global_queue=put_options.global_queue,
         )
+    if not result_uri:
+        LOGGER.error("Revocation publish completed without returning a URI.")
+        return 2
     LOGGER.info("Published revocation URI: %s", result_uri)
     return 0
 

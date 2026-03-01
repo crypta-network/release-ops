@@ -7,10 +7,13 @@ import time
 from typing import Any
 
 try:
-    from fcp3.node import FCPNode
-except Exception as exc:  # pragma: no cover - import-time guard
+    from fcp3.node import ConnectionRefused, FCPException, FCPNode, FCPNodeFailure
+except Exception as import_error:  # pragma: no cover - import-time guard
     FCPNode = None
-    _IMPORT_ERROR: Exception | None = exc
+    FCPException = RuntimeError
+    FCPNodeFailure = RuntimeError
+    ConnectionRefused = RuntimeError
+    _IMPORT_ERROR: Exception | None = import_error
 else:
     _IMPORT_ERROR = None
 
@@ -18,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FCPClientError(RuntimeError):
-    """Raised for FCP connectivity or operation failures."""
+    """It's raised for FCP connectivity or operation failures."""
 
 
 class FCPClient:
@@ -33,7 +36,7 @@ class FCPClient:
         self.connect()
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(self, exc_type, exc_value, tb) -> None:
         self.close()
 
     def connect(self) -> None:
@@ -43,10 +46,10 @@ class FCPClient:
             raise FCPClientError(f"pyFreenet3 is not importable: {_IMPORT_ERROR}")
         try:
             self._node = FCPNode(host=self.host, port=self.port, verbosity=self.verbosity)
-        except Exception as exc:  # pragma: no cover - network interaction
+        except Exception as err:  # pragma: no cover - network interaction
             raise FCPClientError(
                 f"Failed to connect to FCP service at {self.host}:{self.port}."
-            ) from exc
+            ) from err
 
     def close(self) -> None:
         if self._node is None:
@@ -129,7 +132,7 @@ class FCPClient:
         started_at = time.monotonic()
         try:
             put_result = node.put(uri, **put_kwargs)
-        except Exception as exc:
+        except Exception as err:
             elapsed = time.monotonic() - started_at
             LOGGER.error(
                 "FCP put failed id=%s mode=direct uri=%s elapsed_s=%.3f",
@@ -137,7 +140,7 @@ class FCPClient:
                 uri,
                 elapsed,
             )
-            raise FCPClientError(f"Failed to insert bytes to {uri!r}.") from exc
+            raise FCPClientError(f"Failed to insert bytes to {uri!r}.") from err
         chk = _normalize_uri(put_result)
         elapsed = time.monotonic() - started_at
         LOGGER.info(
@@ -159,8 +162,8 @@ class FCPClient:
                 Global=False,
                 nodata=False,
             )
-        except Exception as exc:
-            raise FCPClientError(f"Failed to retrieve URI {uri!r}.") from exc
+        except Exception as err:
+            raise FCPClientError(f"Failed to retrieve URI {uri!r}.") from err
         return _extract_get_payload(get_result, uri)
 
     def check_retrievable(self, uri: str, *, timeout_s: int) -> bool:
@@ -173,7 +176,7 @@ class FCPClient:
                 Global=False,
                 nodata=True,
             )
-        except Exception:
+        except (FCPException, FCPNodeFailure, ConnectionRefused):
             return False
         return True
 
@@ -181,13 +184,13 @@ class FCPClient:
         node = self._require_node()
         try:
             public_ssk, private_ssk = node.genkey()
-        except Exception as exc:
-            raise FCPClientError("Failed to generate staging key pair via FCP.") from exc
+        except Exception as err:
+            raise FCPClientError("Failed to generate staging key pair via FCP.") from err
 
         private_usk_root = _to_usk_root(private_ssk)
         try:
             public_usk_root = node.invertprivate(private_usk_root)
-        except Exception:
+        except (FCPException, FCPNodeFailure, ConnectionRefused):
             public_usk_root = _to_usk_root(public_ssk)
 
         private_usk_base = _to_info_base(private_usk_root)
@@ -199,8 +202,8 @@ class FCPClient:
         private_root = _to_usk_root(_info_base_to_root(private_usk_base))
         try:
             public_root = node.invertprivate(private_root)
-        except Exception as exc:
-            raise FCPClientError("Failed to derive public USK from private staging key.") from exc
+        except Exception as err:
+            raise FCPClientError("Failed to derive public USK from private staging key.") from err
         return _to_info_base(_to_usk_root(public_root))
 
     def _put_path(
@@ -258,7 +261,7 @@ class FCPClient:
         started_at = time.monotonic()
         try:
             put_result = node.put(uri, **put_kwargs)
-        except Exception as exc:
+        except Exception as err:
             elapsed = time.monotonic() - started_at
             LOGGER.error(
                 "FCP put failed id=%s mode=%s uri=%s path=%s elapsed_s=%.3f",
@@ -268,7 +271,7 @@ class FCPClient:
                 absolute_path,
                 elapsed,
             )
-            raise FCPClientError(f"Failed to insert file {absolute_path} to {uri!r}.") from exc
+            raise FCPClientError(f"Failed to insert file {absolute_path} to {uri!r}.") from err
         chk = _normalize_uri(put_result)
         elapsed = time.monotonic() - started_at
         LOGGER.info(
@@ -289,11 +292,12 @@ class FCPClient:
                 WantReadDirectory=True,
                 WantWriteDirectory=False,
             )
-        except Exception:
+        except (FCPException, FCPNodeFailure, ConnectionRefused, OSError):
             return False
         return bool(result)
 
-    def _preferred_insert_codecs(self, node: Any) -> str | None:
+    @staticmethod
+    def _preferred_insert_codecs(node: Any) -> str | None:
         raw_codecs = getattr(node, "compressionCodecs", None)
         if not isinstance(raw_codecs, list):
             return None
