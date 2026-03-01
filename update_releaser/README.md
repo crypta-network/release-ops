@@ -184,7 +184,7 @@ uv run update-releaser verify "$RELEASE_URL" \
   --fcp-host "$FCP_HOST" \
   --fcp-port "$FCP_PORT" \
   --workdir ./dist-full \
-  --timeout-s 60 \
+  --timeout-s 600 \
   -v
 ```
 
