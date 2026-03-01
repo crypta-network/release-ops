@@ -125,31 +125,110 @@ uv run update-releaser revoke \
 
 Each subcommand supports `--help`. Most support `--dry-run`.
 
-## Example plumbing flow
+## Detailed command usage (validated)
+
+The command sets below are validated against current CLI help output
+(`uv run update-releaser --help` and each subcommand `--help`) as of
+2026-03-01.
+
+### Full manual test command list
+
+Use this flow when you want to run each phase independently and inspect
+intermediate outputs in `./dist-full/<edition>/`.
 
 ```bash
-uv run update-releaser fetch-assets \
-  "https://github.com/crypta-network/cryptad/releases/tag/v1"
+cd /work/release-ops/update_releaser
+uv sync
 
-uv run update-releaser insert-artifacts \
-  "https://github.com/crypta-network/cryptad/releases/tag/v1"
+export RELEASE_URL="https://github.com/crypta-network/cryptad/releases/tag/v2"
+export FCP_HOST="127.0.0.1"
+export FCP_PORT="9481"
 
-uv run update-releaser upload-changelogs \
-  "https://github.com/crypta-network/cryptad/releases/tag/v1" \
-  --changelog-file ./short.md \
-  --fullchangelog-file ./full.md
+uv run update-releaser --help
 
-uv run update-releaser generate-core-info \
-  "https://github.com/crypta-network/cryptad/releases/tag/v1"
+uv run update-releaser fetch-assets "$RELEASE_URL" \
+  --github-source gh \
+  --workdir ./dist-full \
+  -v
 
-uv run update-releaser publish-descriptor \
-  "https://github.com/crypta-network/cryptad/releases/tag/v1" \
-  --publish-to staging
+uv run update-releaser insert-artifacts "$RELEASE_URL" \
+  --fcp-host "$FCP_HOST" \
+  --fcp-port "$FCP_PORT" \
+  --workdir ./dist-full \
+  -v
 
-uv run update-releaser verify \
-  "https://github.com/crypta-network/cryptad/releases/tag/v1" \
-  --publish-to staging
+uv run update-releaser upload-changelogs "$RELEASE_URL" \
+  --fcp-host "$FCP_HOST" \
+  --fcp-port "$FCP_PORT" \
+  --workdir ./dist-full \
+  -v
+
+uv run update-releaser generate-core-info "$RELEASE_URL" \
+  --workdir ./dist-full \
+  -v
+
+uv run update-releaser publish-descriptor "$RELEASE_URL" \
+  --publish-to staging \
+  --staging-usk-file ./staging-usk.txt \
+  --fcp-host "$FCP_HOST" \
+  --fcp-port "$FCP_PORT" \
+  --workdir ./dist-full \
+  -v
+
+cat staging-usk.txt
+cat staging-usk.public.txt
+
+uv run update-releaser verify "$RELEASE_URL" \
+  --publish-to staging \
+  --staging-usk-file ./staging-usk.txt \
+  --fcp-host "$FCP_HOST" \
+  --fcp-port "$FCP_PORT" \
+  --workdir ./dist-full \
+  --timeout-s 60 \
+  -v
 ```
+
+`verify` will prefer `staging-usk.public.txt` automatically when
+`staging-usk.txt` contains a private key.
+
+### One-shot end-to-end test (separate workdir)
+
+Use this when you want one command to run the whole pipeline in a clean
+workdir (`./dist-promote/<edition>/`).
+
+```bash
+uv run update-releaser promote "$RELEASE_URL" \
+  --github-source gh \
+  --publish-to staging \
+  --staging-usk-file ./staging-usk.promote.txt \
+  --fcp-host "$FCP_HOST" \
+  --fcp-port "$FCP_PORT" \
+  --workdir ./dist-promote \
+  --timeout-s 600 \
+  -v
+```
+
+### Optional revoke test
+
+```bash
+uv run update-releaser revoke \
+  --fcp-host "$FCP_HOST" \
+  --fcp-port "$FCP_PORT" \
+  --revoke-ssk "SSK@<revocation-key>/revoked" \
+  --message "Emergency test revoke" \
+  -v
+```
+
+### What each command stage does
+
+1. `fetch-assets`: resolves release metadata and downloads mapped artifacts.
+2. `insert-artifacts`: inserts package artifacts into Hyphanet and records CHKs.
+3. `upload-changelogs`: uploads short/full changelog content and records CHKs.
+4. `generate-core-info`: renders deterministic `core-info.json` from state.
+5. `publish-descriptor`: publishes `core-info.json` to staging or production.
+6. `verify`: re-fetches the descriptor and checks CHK retrievability.
+7. `promote`: runs stages 1-6 in one command.
+8. `revoke`: publishes an emergency revocation payload.
 
 ## Draft release fetch with gh
 
