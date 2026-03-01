@@ -1,0 +1,26 @@
+[project]
+name = "update_releaser"
+version = "0.1.0"
+description = "Cryptad release promotion CLI for Hyphanet update descriptors"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "httpx>=0.27.0",
+  "pyFreenet3",
+]
+
+[project.scripts]
+update-releaser = "update_releaser.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.26.0"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+pyFreenet3 = { git = "https://github.com/hyphanet/pyFreenet", branch = "py3" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/update_releaser"]
