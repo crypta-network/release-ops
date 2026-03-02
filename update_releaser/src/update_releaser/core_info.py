@@ -34,8 +34,8 @@ class CoreInfoDescriptor:
     fullchangelog_chk: str | None = None
 
     def validate(self) -> None:
-        if not isinstance(self.version, str) or not self.version:
-            raise ValueError("'version' must be a non-empty string.")
+        if not _is_integer_version(self.version):
+            raise ValueError("'version' must be a non-empty integer string.")
         if not isinstance(self.release_page_url, str) or not self.release_page_url:
             raise ValueError("'release_page_url' must be a non-empty string.")
         if not isinstance(self.packages, dict) or not self.packages:
@@ -100,6 +100,7 @@ def write_core_info_files(
     *,
     workdir: Path,
     edition: str,
+    audit_label: str | None = None,
 ) -> Path:
     rendered = render_core_info_json(descriptor)
     workdir.mkdir(parents=True, exist_ok=True)
@@ -109,7 +110,8 @@ def write_core_info_files(
 
     audit_dir = workdir / "audit"
     audit_dir.mkdir(parents=True, exist_ok=True)
-    immutable_path = audit_dir / f"core-info.{edition}.json"
+    immutable_suffix = audit_label if audit_label else edition
+    immutable_path = audit_dir / f"core-info.{immutable_suffix}.json"
     if immutable_path.exists():
         existing = immutable_path.read_text(encoding="utf-8")
         if existing != rendered:
@@ -119,3 +121,7 @@ def write_core_info_files(
     else:
         immutable_path.write_text(rendered, encoding="utf-8")
     return core_info_path
+
+
+def _is_integer_version(value: Any) -> bool:
+    return isinstance(value, str) and bool(value) and value.isdigit()

@@ -74,6 +74,11 @@ gh auth status
 - Production USK:
   - Never accepted via CLI argument.
   - Prompted via hidden terminal input only when `--publish-to production`.
+- Staging descriptor version override:
+  - Optional `--staging-version-override <value>` can force the generated `core-info.json` `version` for staging only.
+  - Override values must be integer digits only (for example `123`).
+  - Optional `--prompt-staging-version-override` asks interactively for a staging override; press Enter to keep the default edition.
+  - Passing either staging override option while `--publish-to production` is rejected.
 
 ## Quickstart
 
@@ -100,8 +105,19 @@ uv run update-releaser promote \
 uv run update-releaser promote \
   "https://github.com/crypta-network/cryptad/releases/tag/v1" \
   --publish-to staging \
+  --staging-version-override "123" \
   --staging-usk-file ./staging-usk.txt \
   --workdir ./dist
+```
+
+### Prompted staging version override
+
+```bash
+uv run update-releaser publish-descriptor \
+  "https://github.com/crypta-network/cryptad/releases/tag/v1" \
+  --publish-to staging \
+  --prompt-staging-version-override \
+  --staging-usk-file ./staging-usk.txt
 ```
 
 ### Emergency revoke
@@ -271,7 +287,8 @@ For edition `123`, default output root is `dist/123/`:
 
 ## Notes
 
-- `version` in `core-info.json` is always a string.
+- `version` in `core-info.json` is always a string containing integer digits only.
+- By default, descriptor `version` equals the release edition. For staging publishes, you may override it with `--staging-version-override` or `--prompt-staging-version-override` (digits only).
 - Edition derivation:
   - `v<digits>` becomes `<digits>`
   - non-numeric tags are sanitized into stable path-safe edition strings

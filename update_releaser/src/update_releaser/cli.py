@@ -82,6 +82,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     _add_verbose_arg(core_info_parser)
     _add_release_args(core_info_parser)
+    _add_staging_version_override_args(core_info_parser)
     core_info_parser.set_defaults(handler=_handle_generate_core_info)
 
     publish_parser = subparsers.add_parser(
@@ -92,6 +93,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_release_args(publish_parser)
     _add_fcp_args(publish_parser)
     _add_publish_args(publish_parser)
+    _add_staging_version_override_args(publish_parser)
     publish_parser.set_defaults(handler=_handle_publish_descriptor)
 
     verify_parser = subparsers.add_parser(
@@ -124,6 +126,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_fcp_args(promote_parser)
     _add_publish_args(promote_parser)
     _add_changelog_args(promote_parser)
+    _add_staging_version_override_args(promote_parser)
     promote_parser.add_argument(
         "--timeout-s",
         type=int,
@@ -277,6 +280,25 @@ def _add_changelog_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_staging_version_override_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--staging-version-override",
+        default=None,
+        help=(
+            "Override the generated core-info.json 'version' (integer digits only) for staging descriptors only. "
+            "Only valid when publishing to staging."
+        ),
+    )
+    parser.add_argument(
+        "--prompt-staging-version-override",
+        action="store_true",
+        help=(
+            "Prompt for an optional staging-only core-info version override (integer digits only). "
+            "Press Enter to keep the default release edition."
+        ),
+    )
+
+
 def _handle_fetch_assets(args: argparse.Namespace) -> int:
     workflow = _build_workflow(args)
     assets = workflow.fetch_assets()
@@ -315,7 +337,11 @@ def _handle_upload_changelogs(args: argparse.Namespace) -> int:
 
 def _handle_generate_core_info(args: argparse.Namespace) -> int:
     workflow = _build_workflow(args)
-    core_info_path = workflow.generate_core_info()
+    staging_version_override = _resolve_staging_version_override(
+        args,
+        publish_to=PUBLISH_TO_STAGING,
+    )
+    core_info_path = workflow.generate_core_info(version_override=staging_version_override)
     LOGGER.info("Generated core info at %s", core_info_path)
     return 0
 
@@ -324,12 +350,17 @@ def _handle_publish_descriptor(args: argparse.Namespace) -> int:
     workflow = _build_workflow(args)
     put_options = _build_put_options(args)
     staging_usk_file = Path(args.staging_usk_file)
+    staging_version_override = _resolve_staging_version_override(
+        args,
+        publish_to=args.publish_to,
+    )
     with _fcp_context(args) as fcp:
         result_uri = workflow.publish_descriptor(
             publish_to=args.publish_to,
             staging_usk_file=staging_usk_file,
             fcp=fcp,
             put_options=put_options,
+            staging_version_override=staging_version_override,
         )
     LOGGER.info("Published descriptor URI: %s", result_uri)
     return 0
@@ -356,6 +387,10 @@ def _handle_promote(args: argparse.Namespace) -> int:
     staging_usk_file = Path(args.staging_usk_file)
     short_override = Path(args.changelog_file) if args.changelog_file else None
     full_override = Path(args.fullchangelog_file) if args.fullchangelog_file else None
+    staging_version_override = _resolve_staging_version_override(
+        args,
+        publish_to=args.publish_to,
+    )
 
     workflow.fetch_assets()
     with _fcp_context(args) as fcp:
@@ -366,12 +401,13 @@ def _handle_promote(args: argparse.Namespace) -> int:
             short_override=short_override,
             full_override=full_override,
         )
-        core_info_path = workflow.generate_core_info()
+        core_info_path = workflow.generate_core_info(version_override=staging_version_override)
         published_uri = workflow.publish_descriptor(
             publish_to=args.publish_to,
             staging_usk_file=staging_usk_file,
             fcp=fcp,
             put_options=put_options,
+            staging_version_override=staging_version_override,
         )
         report = workflow.verify(
             publish_to=args.publish_to,
@@ -407,6 +443,47 @@ def _handle_revoke(args: argparse.Namespace) -> int:
         return 2
     LOGGER.info("Published revocation URI: %s", result_uri)
     return 0
+
+
+def _resolve_staging_version_override(
+    args: argparse.Namespace,
+    *,
+    publish_to: str,
+) -> str | None:
+    explicit_override = _normalized_version_text(args.staging_version_override)
+    prompt_override = bool(args.prompt_staging_version_override)
+
+    if publish_to != PUBLISH_TO_STAGING:
+        if explicit_override is not None or prompt_override:
+            raise ValueError(
+                "Staging version override can only be used when --publish-to staging."
+            )
+        return None
+
+    if explicit_override is not None:
+        return explicit_override
+    if not prompt_override:
+        return None
+
+    default_edition = parse_release_page_url(args.release_url).edition
+    prompted = input(
+        "Staging core-info version override "
+        f"(integer digits only; press Enter to keep '{default_edition}'): "
+    ).strip()
+    if not prompted:
+        return None
+    return _normalized_version_text(prompted)
+
+
+def _normalized_version_text(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    normalized = raw.strip()
+    if not normalized:
+        raise ValueError("Staging version override must not be empty.")
+    if not normalized.isdigit():
+        raise ValueError("Staging version override must be an integer string (digits only).")
+    return normalized
 
 
 def _build_workflow(args: argparse.Namespace) -> ReleaseWorkflow:

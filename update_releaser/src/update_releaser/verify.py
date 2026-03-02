@@ -311,8 +311,8 @@ def _validate_descriptor_required_fields(document: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
     version = document.get("version")
-    if not _is_non_empty_string(version):
-        errors.append("'version' must be a non-empty string.")
+    if not _is_integer_version_text(version):
+        errors.append("'version' must be a non-empty integer string.")
 
     release_page_url = document.get("release_page_url")
     if not _is_non_empty_string(release_page_url):
@@ -400,6 +400,10 @@ def _is_non_empty_string(value: Any) -> bool:
 
 def _is_non_negative_int(value: Any) -> bool:
     return isinstance(value, int) and value >= 0
+
+
+def _is_integer_version_text(value: Any) -> bool:
+    return isinstance(value, str) and bool(value) and value.isdigit()
 
 
 def _write_verify_report(workdir: Path, report: dict[str, Any]) -> None:

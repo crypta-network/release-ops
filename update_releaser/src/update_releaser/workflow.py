@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import logging
 import os
 from pathlib import Path
+import re
 from typing import Any
 
 from update_releaser.changelog import prepare_changelog_files
@@ -277,10 +279,23 @@ class ReleaseWorkflow:
         self._save_state()
         return updated
 
-    def generate_core_info(self) -> Path:
+    def generate_core_info(self, *, version_override: str | None = None) -> Path:
+        descriptor_version = _resolve_descriptor_version(
+            default_version=self.release_ref.edition,
+            version_override=version_override,
+        )
+        audit_label = _core_info_audit_label(
+            release_edition=self.release_ref.edition,
+            descriptor_version=descriptor_version,
+        )
+
         if self.dry_run:
             target = self.workdir / "core-info.json"
-            LOGGER.info("[dry-run] Would generate %s", target)
+            LOGGER.info(
+                "[dry-run] Would generate %s (descriptor version=%s)",
+                target,
+                descriptor_version,
+            )
             return target
 
         packages_state = self._state_packages()
@@ -305,7 +320,7 @@ class ReleaseWorkflow:
 
         changelog_state = self._state_changelogs()
         descriptor = CoreInfoDescriptor(
-            version=self.release_ref.edition,
+            version=descriptor_version,
             release_page_url=self.release_ref.release_page_url,
             changelog_chk=_opt_str(changelog_state.get("changelog_chk")),
             fullchangelog_chk=_opt_str(changelog_state.get("fullchangelog_chk")),
@@ -315,11 +330,14 @@ class ReleaseWorkflow:
             descriptor,
             workdir=self.workdir,
             edition=self.release_ref.edition,
+            audit_label=audit_label,
         )
 
         self.state["core_info"] = {
             "path": to_workdir_relative(core_info_path, self.workdir),
             "sha256": sha256_file(core_info_path),
+            "descriptor_version": descriptor_version,
+            "audit_label": audit_label,
             "generated_at": now_utc_iso(),
         }
         self._save_state()
@@ -332,13 +350,28 @@ class ReleaseWorkflow:
         staging_usk_file: Path,
         fcp: FCPClient | None,
         put_options: PutOptions,
+        staging_version_override: str | None = None,
     ) -> str:
         if not self.dry_run and fcp is None:
             raise WorkflowError("FCP client is required for publish-descriptor.")
 
+        desired_descriptor_version = self._descriptor_version_for_publish_target(
+            publish_to=publish_to,
+            staging_version_override=staging_version_override,
+        )
         core_info_path = self._core_info_path()
-        if core_info_path is None or not core_info_path.exists():
-            core_info_path = self.generate_core_info()
+        current_descriptor_version = self._core_info_descriptor_version(core_info_path)
+        if (
+            core_info_path is None
+            or not core_info_path.exists()
+            or current_descriptor_version != desired_descriptor_version
+        ):
+            version_override = (
+                desired_descriptor_version
+                if desired_descriptor_version != self.release_ref.edition
+                else None
+            )
+            core_info_path = self.generate_core_info(version_override=version_override)
 
         usk_base = resolve_publish_usk_base(
             publish_to=publish_to,
@@ -350,7 +383,12 @@ class ReleaseWorkflow:
         target_uri = descriptor_target_uri(usk_base, self.release_ref.edition)
 
         if self.dry_run:
-            LOGGER.info("[dry-run] Would publish descriptor %s to %s", core_info_path, target_uri)
+            LOGGER.info(
+                "[dry-run] Would publish descriptor %s to %s (version=%s)",
+                core_info_path,
+                target_uri,
+                desired_descriptor_version,
+            )
             return target_uri
 
         core_sha = self.state.get("core_info", {}).get("sha256")
@@ -379,6 +417,7 @@ class ReleaseWorkflow:
             "descriptor_uri": target_uri,
             "result_uri": result_uri,
             "core_sha256": core_sha,
+            "descriptor_version": desired_descriptor_version,
             "published_at": now_utc_iso(),
         }
         self.state["published"] = published_state
@@ -394,6 +433,9 @@ class ReleaseWorkflow:
         timeout_s: int,
         deep: bool,
     ) -> dict[str, Any]:
+        expected_descriptor_version = self._expected_descriptor_version_for_verify(
+            publish_to=publish_to
+        )
         descriptor_uri = self._descriptor_uri_for_target(
             publish_to=publish_to,
             staging_usk_file=staging_usk_file,
@@ -410,7 +452,7 @@ class ReleaseWorkflow:
                 descriptor_uri=descriptor_uri,
                 workdir=self.workdir,
                 fallback_descriptor_uri=fallback_descriptor_uri,
-                expected_version=self.release_ref.edition,
+                expected_version=expected_descriptor_version,
                 expected_release_page_url=self.release_ref.release_page_url,
                 timeout_s=timeout_s,
                 deep=deep,
@@ -424,7 +466,7 @@ class ReleaseWorkflow:
             descriptor_uri=descriptor_uri,
             workdir=self.workdir,
             fallback_descriptor_uri=fallback_descriptor_uri,
-            expected_version=self.release_ref.edition,
+            expected_version=expected_descriptor_version,
             expected_release_page_url=self.release_ref.release_page_url,
             timeout_s=timeout_s,
             deep=deep,
@@ -543,6 +585,57 @@ class ReleaseWorkflow:
             return None
         return from_workdir_relative(raw_path, self.workdir)
 
+    def _descriptor_version_for_publish_target(
+        self,
+        *,
+        publish_to: str,
+        staging_version_override: str | None,
+    ) -> str:
+        if publish_to != PUBLISH_TO_STAGING:
+            if staging_version_override is not None:
+                raise WorkflowError(
+                    "Staging version override can only be used when publishing to staging."
+                )
+            return self.release_ref.edition
+        return _resolve_descriptor_version(
+            default_version=self.release_ref.edition,
+            version_override=staging_version_override,
+        )
+
+    def _core_info_descriptor_version(self, core_info_path: Path | None) -> str | None:
+        from_state = self._core_info_descriptor_version_from_state()
+        if from_state is not None:
+            return from_state
+        if core_info_path is None or not core_info_path.exists():
+            return None
+        return _core_info_descriptor_version_from_file(core_info_path)
+
+    def _core_info_descriptor_version_from_state(self) -> str | None:
+        core_info_state = self.state.get("core_info")
+        if not isinstance(core_info_state, dict):
+            return None
+        descriptor_version = _opt_str(core_info_state.get("descriptor_version"))
+        if descriptor_version is None or not _is_integer_version_text(descriptor_version):
+            return None
+        return descriptor_version
+
+    def _expected_descriptor_version_for_verify(self, *, publish_to: str) -> str:
+        if publish_to != PUBLISH_TO_STAGING:
+            return self.release_ref.edition
+
+        published = self.state.get("published")
+        if isinstance(published, dict):
+            target_state = published.get(publish_to)
+            if isinstance(target_state, dict):
+                published_version = _opt_str(target_state.get("descriptor_version"))
+                if published_version is not None and _is_integer_version_text(published_version):
+                    return published_version
+
+        staged_core_info_version = self._core_info_descriptor_version(self._core_info_path())
+        if staged_core_info_version is not None:
+            return staged_core_info_version
+        return self.release_ref.edition
+
     def _descriptor_uri_for_target(
         self,
         *,
@@ -613,3 +706,39 @@ def _opt_str(value: Any) -> str | None:
 
 def _opt_int(value: Any) -> int | None:
     return value if isinstance(value, int) else None
+
+
+def _core_info_descriptor_version_from_file(core_info_path: Path) -> str | None:
+    try:
+        payload = json.loads(core_info_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    version = _opt_str(payload.get("version"))
+    if version is None or not _is_integer_version_text(version):
+        return None
+    return version
+
+
+def _resolve_descriptor_version(*, default_version: str, version_override: str | None) -> str:
+    selected = default_version if version_override is None else version_override.strip()
+    if not selected:
+        raise WorkflowError("Version must not be empty.")
+    if not _is_integer_version_text(selected):
+        raise WorkflowError("Version must be an integer string (digits only).")
+    return selected
+
+
+def _core_info_audit_label(*, release_edition: str, descriptor_version: str) -> str:
+    if descriptor_version == release_edition:
+        return release_edition
+
+    sanitized_version = re.sub(r"[^A-Za-z0-9._-]+", "-", descriptor_version).strip("-")
+    if not sanitized_version:
+        sanitized_version = "override"
+    return f"{release_edition}.staging-{sanitized_version}"
+
+
+def _is_integer_version_text(value: str) -> bool:
+    return bool(value) and value.isdigit()
