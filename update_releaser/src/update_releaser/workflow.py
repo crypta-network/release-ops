@@ -44,6 +44,9 @@ from update_releaser.state import (
 from update_releaser.verify import verify_published_descriptor
 
 LOGGER = logging.getLogger(__name__)
+_SAFE_USK_VERSION_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+_USK_PROBE_TIMEOUT_S = 10
+_USK_PROBE_MAX_STEPS = 10_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -351,6 +354,7 @@ class ReleaseWorkflow:
         fcp: FCPClient | None,
         put_options: PutOptions,
         staging_version_override: str | None = None,
+        usk_version_override: str | None = None,
     ) -> str:
         if not self.dry_run and fcp is None:
             raise WorkflowError("FCP client is required for publish-descriptor.")
@@ -380,20 +384,45 @@ class ReleaseWorkflow:
             fcp=fcp,
             auto_generate_staging=True,
         )
-        target_uri = descriptor_target_uri(usk_base, self.release_ref.edition)
-
-        if self.dry_run:
-            LOGGER.info(
-                "[dry-run] Would publish descriptor %s to %s (version=%s)",
-                core_info_path,
-                target_uri,
-                desired_descriptor_version,
-            )
-            return target_uri
-
         core_sha = self.state.get("core_info", {}).get("sha256")
         published_state = self.state.setdefault("published", {})
         existing = published_state.get(publish_to)
+        if (
+            not self.dry_run
+            and usk_version_override is None
+            and isinstance(existing, dict)
+            and _descriptor_uri_uses_usk_base(
+                descriptor_uri=_opt_str(existing.get("descriptor_uri")),
+                usk_base=usk_base,
+            )
+            and existing.get("core_sha256") == core_sha
+            and isinstance(existing.get("result_uri"), str)
+        ):
+            LOGGER.info(
+                "Reusing published descriptor for target %s at %s",
+                publish_to,
+                existing.get("descriptor_uri"),
+            )
+            return str(existing["result_uri"])
+
+        target_usk_version = self._resolve_publish_usk_version(
+            publish_to=publish_to,
+            usk_base=usk_base,
+            fcp=fcp,
+            usk_version_override=usk_version_override,
+        )
+        target_uri = descriptor_target_uri(usk_base, target_usk_version)
+
+        if self.dry_run:
+            LOGGER.info(
+                "[dry-run] Would publish descriptor %s to %s (core-info version=%s, usk version=%s)",
+                core_info_path,
+                target_uri,
+                desired_descriptor_version,
+                target_usk_version,
+            )
+            return target_uri
+
         if (
             isinstance(existing, dict)
             and existing.get("descriptor_uri") == target_uri
@@ -407,7 +436,7 @@ class ReleaseWorkflow:
         result_uri = publish_descriptor_to_usk(
             fcp,
             usk_base=usk_base,
-            edition=self.release_ref.edition,
+            edition=target_usk_version,
             core_info_path=core_info_path,
             priority=put_options.priority,
             persistence=put_options.persistence,
@@ -418,11 +447,82 @@ class ReleaseWorkflow:
             "result_uri": result_uri,
             "core_sha256": core_sha,
             "descriptor_version": desired_descriptor_version,
+            "usk_version": target_usk_version,
             "published_at": now_utc_iso(),
         }
         self.state["published"] = published_state
         self._save_state()
         return result_uri
+
+    def _resolve_publish_usk_version(
+        self,
+        *,
+        publish_to: str,
+        usk_base: str,
+        fcp: FCPClient | None,
+        usk_version_override: str | None,
+    ) -> str:
+        if usk_version_override is not None:
+            return _resolve_usk_version(
+                default_version=self.release_ref.edition,
+                version_override=usk_version_override,
+            )
+
+        start_version = self._auto_usk_version_start(publish_to=publish_to, usk_base=usk_base)
+        if self.dry_run or fcp is None:
+            LOGGER.info(
+                "[dry-run] Auto-selected next available USK version (estimated): %s",
+                start_version,
+            )
+            return str(start_version)
+
+        return self._find_next_available_usk_version(
+            usk_base=usk_base,
+            start_version=start_version,
+            fcp=fcp,
+        )
+
+    def _auto_usk_version_start(self, *, publish_to: str, usk_base: str) -> int:
+        published = self.state.get("published")
+        if isinstance(published, dict):
+            target_state = published.get(publish_to)
+            if isinstance(target_state, dict):
+                descriptor_uri = _opt_str(target_state.get("descriptor_uri"))
+                if _descriptor_uri_uses_usk_base(descriptor_uri=descriptor_uri, usk_base=usk_base):
+                    from_uri = _parse_numeric_usk_version(
+                        _usk_version_from_descriptor_uri(descriptor_uri)
+                    )
+                    if from_uri is not None:
+                        return from_uri + 1
+
+                    from_state = _parse_numeric_usk_version(_opt_str(target_state.get("usk_version")))
+                    if from_state is not None:
+                        return from_state + 1
+
+        release_edition = _parse_numeric_usk_version(self.release_ref.edition)
+        if release_edition is not None:
+            return release_edition
+        return 0
+
+    def _find_next_available_usk_version(
+        self,
+        *,
+        usk_base: str,
+        start_version: int,
+        fcp: FCPClient,
+    ) -> str:
+        current_version = max(0, start_version)
+        for _ in range(_USK_PROBE_MAX_STEPS):
+            target_uri = descriptor_target_uri(usk_base, str(current_version))
+            if not fcp.check_retrievable(target_uri, timeout_s=_USK_PROBE_TIMEOUT_S):
+                LOGGER.info("Auto-selected next available USK version: %s", current_version)
+                return str(current_version)
+            current_version += 1
+
+        raise WorkflowError(
+            "Could not find the next available USK version. "
+            f"Probed {_USK_PROBE_MAX_STEPS} versions starting at {start_version}."
+        )
 
     def verify(
         self,
@@ -644,6 +744,8 @@ class ReleaseWorkflow:
         fcp: FCPClient | None,
         prefer_public_for_staging: bool,
     ) -> str:
+        target_usk_version = self._usk_version_for_target(publish_to=publish_to)
+
         if publish_to == PUBLISH_TO_STAGING and prefer_public_for_staging:
             usk_base = resolve_publish_usk_base(
                 publish_to=publish_to,
@@ -653,7 +755,7 @@ class ReleaseWorkflow:
                 auto_generate_staging=False,
                 prefer_public_for_staging=True,
             )
-            return descriptor_target_uri(usk_base, self.release_ref.edition)
+            return descriptor_target_uri(usk_base, target_usk_version)
 
         published = self.state.get("published", {})
         if isinstance(published, dict):
@@ -668,7 +770,21 @@ class ReleaseWorkflow:
             staging_usk_file=staging_usk_file,
             dry_run=self.dry_run,
         )
-        return descriptor_target_uri(usk_base, self.release_ref.edition)
+        return descriptor_target_uri(usk_base, target_usk_version)
+
+    def _usk_version_for_target(self, *, publish_to: str) -> str:
+        published = self.state.get("published")
+        if isinstance(published, dict):
+            target_state = published.get(publish_to)
+            if isinstance(target_state, dict):
+                stored_version = _opt_str(target_state.get("usk_version"))
+                if stored_version is not None and _is_valid_usk_version_text(stored_version):
+                    return stored_version
+                descriptor_uri = _opt_str(target_state.get("descriptor_uri"))
+                derived_version = _usk_version_from_descriptor_uri(descriptor_uri)
+                if derived_version is not None:
+                    return derived_version
+        return self.release_ref.edition
 
     def _result_uri_for_target(self, *, publish_to: str) -> str | None:
         published = self.state.get("published", {})
@@ -730,6 +846,17 @@ def _resolve_descriptor_version(*, default_version: str, version_override: str |
     return selected
 
 
+def _resolve_usk_version(*, default_version: str, version_override: str | None) -> str:
+    selected = default_version if version_override is None else version_override.strip()
+    if not selected:
+        raise WorkflowError("USK version must not be empty.")
+    if not _is_valid_usk_version_text(selected):
+        raise WorkflowError(
+            "USK version must contain only letters, digits, '.', '_' or '-'."
+        )
+    return selected
+
+
 def _core_info_audit_label(*, release_edition: str, descriptor_version: str) -> str:
     if descriptor_version == release_edition:
         return release_edition
@@ -742,3 +869,37 @@ def _core_info_audit_label(*, release_edition: str, descriptor_version: str) -> 
 
 def _is_integer_version_text(value: str) -> bool:
     return bool(value) and value.isdigit()
+
+
+def _is_valid_usk_version_text(value: str) -> bool:
+    return bool(_SAFE_USK_VERSION_RE.fullmatch(value))
+
+
+def _parse_numeric_usk_version(value: str | None) -> int | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized or not normalized.isdigit():
+        return None
+    return int(normalized)
+
+
+def _descriptor_uri_uses_usk_base(*, descriptor_uri: str | None, usk_base: str) -> bool:
+    if descriptor_uri is None:
+        return False
+    return descriptor_uri.strip().startswith(usk_base.strip())
+
+
+def _usk_version_from_descriptor_uri(descriptor_uri: str | None) -> str | None:
+    if descriptor_uri is None:
+        return None
+    normalized = descriptor_uri.strip().rstrip("/")
+    _, separator, suffix = normalized.rpartition("/info/")
+    if not separator:
+        return None
+    version = suffix.strip()
+    if not version or "/" in version:
+        return None
+    if not _is_valid_usk_version_text(version):
+        return None
+    return version

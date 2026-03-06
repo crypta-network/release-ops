@@ -5,6 +5,7 @@ import contextlib
 import logging
 import os
 from pathlib import Path
+import re
 from typing import Sequence
 
 from update_releaser.fcp_client import FCPClient
@@ -93,6 +94,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_release_args(publish_parser)
     _add_fcp_args(publish_parser)
     _add_publish_args(publish_parser)
+    _add_usk_version_override_arg(publish_parser)
     _add_staging_version_override_args(publish_parser)
     publish_parser.set_defaults(handler=_handle_publish_descriptor)
 
@@ -125,6 +127,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_release_args(promote_parser)
     _add_fcp_args(promote_parser)
     _add_publish_args(promote_parser)
+    _add_usk_version_override_arg(promote_parser)
     _add_changelog_args(promote_parser)
     _add_staging_version_override_args(promote_parser)
     promote_parser.add_argument(
@@ -299,6 +302,18 @@ def _add_staging_version_override_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_usk_version_override_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--usk-version-override",
+        default=None,
+        help=(
+            "Override the USK edition segment where core-info.json is inserted. "
+            "Must be a non-empty URI-safe segment using letters, digits, '.', '_' or '-'. "
+            "If omitted, defaults to the next available USK version."
+        ),
+    )
+
+
 def _handle_fetch_assets(args: argparse.Namespace) -> int:
     workflow = _build_workflow(args)
     assets = workflow.fetch_assets()
@@ -354,6 +369,7 @@ def _handle_publish_descriptor(args: argparse.Namespace) -> int:
         args,
         publish_to=args.publish_to,
     )
+    usk_version_override = _resolve_usk_version_override(args)
     with _fcp_context(args) as fcp:
         result_uri = workflow.publish_descriptor(
             publish_to=args.publish_to,
@@ -361,6 +377,7 @@ def _handle_publish_descriptor(args: argparse.Namespace) -> int:
             fcp=fcp,
             put_options=put_options,
             staging_version_override=staging_version_override,
+            usk_version_override=usk_version_override,
         )
     LOGGER.info("Published descriptor URI: %s", result_uri)
     return 0
@@ -391,6 +408,7 @@ def _handle_promote(args: argparse.Namespace) -> int:
         args,
         publish_to=args.publish_to,
     )
+    usk_version_override = _resolve_usk_version_override(args)
 
     workflow.fetch_assets()
     with _fcp_context(args) as fcp:
@@ -408,6 +426,7 @@ def _handle_promote(args: argparse.Namespace) -> int:
             fcp=fcp,
             put_options=put_options,
             staging_version_override=staging_version_override,
+            usk_version_override=usk_version_override,
         )
         report = workflow.verify(
             publish_to=args.publish_to,
@@ -483,6 +502,23 @@ def _normalized_version_text(raw: str | None) -> str | None:
         raise ValueError("Staging version override must not be empty.")
     if not normalized.isdigit():
         raise ValueError("Staging version override must be an integer string (digits only).")
+    return normalized
+
+
+def _resolve_usk_version_override(args: argparse.Namespace) -> str | None:
+    return _normalized_usk_version_text(args.usk_version_override)
+
+
+def _normalized_usk_version_text(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    normalized = raw.strip()
+    if not normalized:
+        raise ValueError("USK version override must not be empty.")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", normalized):
+        raise ValueError(
+            "USK version override must contain only letters, digits, '.', '_' or '-'."
+        )
     return normalized
 
 

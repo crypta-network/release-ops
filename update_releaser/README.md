@@ -79,6 +79,10 @@ gh auth status
   - Override values must be integer digits only (for example `123`).
   - Optional `--prompt-staging-version-override` asks interactively for a staging override; press Enter to keep the default edition.
   - Passing either staging override option while `--publish-to production` is rejected.
+- Published USK version override:
+  - Optional `--usk-version-override <value>` can force which USK edition `core-info.json` is inserted to for `publish-descriptor` and `promote`.
+  - Values must be URI-safe segments using letters, digits, `.`, `_`, or `-`.
+  - If omitted, publish auto-selects the next available numeric USK version.
 
 ## Quickstart
 
@@ -106,6 +110,7 @@ uv run update-releaser promote \
   "https://github.com/crypta-network/cryptad/releases/tag/v1" \
   --publish-to staging \
   --staging-version-override "123" \
+  --usk-version-override "456" \
   --staging-usk-file ./staging-usk.txt \
   --workdir ./dist
 ```
@@ -185,6 +190,7 @@ uv run update-releaser generate-core-info "$RELEASE_URL" \
 
 uv run update-releaser publish-descriptor "$RELEASE_URL" \
   --publish-to staging \
+  --usk-version-override "456" \
   --staging-usk-file ./staging-usk.txt \
   --fcp-host "$FCP_HOST" \
   --fcp-port "$FCP_PORT" \
@@ -216,6 +222,7 @@ workdir (`./dist-promote/<edition>/`).
 uv run update-releaser promote "$RELEASE_URL" \
   --github-source gh \
   --publish-to staging \
+  --usk-version-override "456" \
   --staging-usk-file ./staging-usk.promote.txt \
   --fcp-host "$FCP_HOST" \
   --fcp-port "$FCP_PORT" \
@@ -289,6 +296,7 @@ For edition `123`, default output root is `dist/123/`:
 
 - `version` in `core-info.json` is always a string containing integer digits only.
 - By default, descriptor `version` equals the release edition. For staging publishes, you may override it with `--staging-version-override` or `--prompt-staging-version-override` (digits only).
+- By default, publish probes for the next available numeric USK version segment. You may force a specific publish target edition with `--usk-version-override` on `publish-descriptor` and `promote`.
 - Edition derivation:
   - `v<digits>` becomes `<digits>`
   - non-numeric tags are sanitized into stable path-safe edition strings
