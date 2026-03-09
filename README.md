@@ -111,7 +111,7 @@ Artifacts:
 ## Flatpak (Freedesktop 24.08)
 
 Template: `flatpak/cryptad.yaml.template`
-- `id: network.crypta.cryptad`, `branch: v__VERSION__`
+- `id: network.crypta.cryptad`, `branch: stable`
 - Runtime/SDK: `org.freedesktop.Platform` / `org.freedesktop.Sdk` (24.08)
 - GUI command: `cryptad-launcher`; `finish-args` include network, wayland/x11,
   IPC/DRI, and `CRYPTAD_ALLOW_ROOT=1`
@@ -120,7 +120,7 @@ Template: `flatpak/cryptad.yaml.template`
 - Installs desktop file and 512×512 hicolor icon, plus AppStream metadata
 
 The workflow installs Flatpak tooling, adds Flathub to the user scope, installs
-freedesktop 24.08 runtime+SDK, builds, exports branch `v<version>`, and bundles.
+freedesktop 24.08 runtime+SDK, builds, exports branch `stable`, and bundles.
 
 Artifacts:
 - GitHub artifact names: `cryptad-flatpak-<version>-amd64`, `cryptad-flatpak-<version>-arm64`

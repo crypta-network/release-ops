@@ -119,7 +119,7 @@ Diagnostics:
 Path: `flatpak/cryptad.yaml.template`
 
 Key points:
-- `id: network.crypta.cryptad`, `branch: v__VERSION__`.
+- `id: network.crypta.cryptad`, `branch: stable`.
 - `runtime: org.freedesktop.Platform`, `runtime-version: '24.08'`, `sdk: org.freedesktop.Sdk`.
 - `command: cryptad-launcher` (GUI entry) with `finish-args` for network, wayland/x11, IPC, DRI, and `env: CRYPTAD_ALLOW_ROOT=1`.
 - Single `modules` entry unpacks `cryptad-jlink-v__VERSION__.tar.gz` to `/app` with `--strip-components=1` to ensure `/app/bin/cryptad` exists.
@@ -161,11 +161,12 @@ High‑level flow:
   4) Build upstream dist; write absolute tarball path to `.tarball-path`.
   5) Repack payload to `flatpak/local/cryptad-jlink-v<version>.tar.gz`.
   6) Render `flatpak/cryptad.yaml` and `flatpak/network.crypta.cryptad.metainfo.xml` from templates.
+     - Assert with `yq` that the rendered manifest branch is `stable`.
   7) Render shared desktop file (`Exec=cryptad-launcher`, `Icon=network.crypta.cryptad`).
   8) Install Flatpak tooling; add Flathub remote to the user scope; install freedesktop runtime+SDK 24.08.
   9) Build with `flatpak-builder --user --arch=<matrix>`.
- 10) Export repo to branch `v<version>` and bundle as `cryptad-flatpak-v<version>-<arch>.flatpak`.
- 11) Upload artifact per arch: `cryptad-flatpak-<version>-x86_64` or `...-aarch64`.
+ 10) Export repo to branch `stable`, verify the exported ref, and bundle as `cryptad-v<version>-<arch>.flatpak`.
+ 11) Upload artifact per arch: `cryptad-flatpak-<version>-amd64` or `...-arm64`.
 
 ## Rationale and Lessons Learned
 

@@ -28,6 +28,9 @@ on:
         description: "Resolved version used for this build"
         value: ${{ jobs.build.outputs.version }}
 
+env:
+  FLATPAK_BRANCH: stable
+
 jobs:
   build:
     runs-on: ${{ matrix.runner }}
@@ -89,12 +92,12 @@ jobs:
             __VERSION__=${{ steps.prepare.outputs.version }}
           preview_lines: "120"
 
-      - name: Install Flatpak tooling and runtimes
+      - name: Install Flatpak tooling, yq, and runtimes
         run: |
           set -euo pipefail
-          echo "::group::Install flatpak + flatpak-builder"
+          echo "::group::Install flatpak + flatpak-builder + yq"
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          sudo apt-get install -y flatpak flatpak-builder yq
           echo "::endgroup::"
           echo "::group::Configure flathub remote"
           # Add flathub to the user installation (match --user usage later)
@@ -104,6 +107,16 @@ jobs:
           echo "::group::Install freedesktop runtime+sdk 24.08"
           flatpak --user --noninteractive install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
           echo "::endgroup::"
+
+      - name: Verify rendered Flatpak branch
+        run: |
+          set -euo pipefail
+          ACTUAL_BRANCH="$(yq -r '.branch' flatpak/cryptad.yaml)"
+          if [ "$ACTUAL_BRANCH" != "$FLATPAK_BRANCH" ]; then
+            echo "::error::Expected Flatpak manifest branch '$FLATPAK_BRANCH' but found '$ACTUAL_BRANCH'"
+            exit 1
+          fi
+          echo "::notice::Verified Flatpak manifest branch: $ACTUAL_BRANCH"
 
       - name: Build Flatpak (manifest)
         env:
@@ -122,7 +135,7 @@ jobs:
           set -euo pipefail
           VERSION='${{ steps.prepare.outputs.version }}'
           APPID='network.crypta.cryptad'
-          BRANCH="v${VERSION}"
+          BRANCH="${FLATPAK_BRANCH}"
           # Canonical arch naming for artifact filenames
           case "${{ matrix.flatpak_arch }}" in
             x86_64) CANON_ARCH=amd64 ;;
@@ -130,8 +143,15 @@ jobs:
             *) CANON_ARCH='${{ matrix.flatpak_arch }}' ;;
           esac
           echo "::group::Export repo"
-          # Export to the same branch we'll bundle (defaults to 'master' if omitted)
+          # Export to the same stable branch we'll bundle so all releases share one ref.
           flatpak build-export --arch=${{ matrix.flatpak_arch }} repo builddir "$BRANCH"
+          EXPECTED_REF="app/${APPID}/${{ matrix.flatpak_arch }}/${BRANCH}"
+          if ! ostree refs --repo=repo | grep -Fx "$EXPECTED_REF" >/dev/null; then
+            echo "::error::Expected exported Flatpak ref '$EXPECTED_REF' was not created"
+            ostree refs --repo=repo | sed 's/^/::error::[ref] /'
+            exit 1
+          fi
+          echo "::notice::Verified exported Flatpak ref: $EXPECTED_REF"
           echo "::endgroup::"
           echo "::group::Create bundle"
           BUNDLE="cryptad-v${VERSION}-${CANON_ARCH}.flatpak"

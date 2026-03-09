@@ -1,5 +1,5 @@
 id: network.crypta.cryptad
-branch: v__VERSION__
+branch: stable
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
