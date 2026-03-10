@@ -178,7 +178,10 @@ uv run update-releaser insert-artifacts "$RELEASE_URL" \
   --workdir ./dist-full \
   -v
 
+# derives changelog-short.md and changelog-full.md from the GitHub release
+# body by default; add --changelog-file/--fullchangelog-file to override
 uv run update-releaser upload-changelogs "$RELEASE_URL" \
+  --github-source gh \
   --fcp-host "$FCP_HOST" \
   --fcp-port "$FCP_PORT" \
   --workdir ./dist-full \
